@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ref Studio — Referencias de dibujo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-app:#131419;
+    --bg-panel:#1b1d24;
+    --bg-panel-2:#22242c;
+    --bg-canvas:#0a0b0d;
+    --border:#2d303a;
+    --border-soft:#3a3d48;
+    --text:#e9e7e2;
+    --text-dim:#9a9ca6;
+    --text-faint:#5f616c;
+    --accent:#d9a24b;
+    --accent-strong:#f0bd6c;
+    --accent-ink:#151208;
+    --danger:#d9614b;
+    --ok:#5fa88a;
+    --radius-sm:6px;
+    --radius-md:10px;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg-app);
+    color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  button{font-family:inherit;}
+  select, input{font-family:inherit;}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+
+  /* ---------- layout roots ---------- */
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;}
+  .hidden{display:none !important;}
+
+  /* ---------- SETUP SCREEN ---------- */
+  #setupScreen{
+    flex:1;overflow-y:auto;
+    display:flex;justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .setup-wrap{width:100%;max-width:560px;}
+  .setup-header{margin-bottom:22px;}
+  .setup-header .brand{
+    display:flex;align-items:center;gap:10px;color:var(--accent);
+    font-weight:600;font-size:13px;letter-spacing:.02em;
+  }
+  .setup-header h1{
+    font-size:26px;margin:10px 0 6px;font-weight:700;color:var(--text);
+  }
+  .setup-header p{margin:0;color:var(--text-dim);font-size:14.5px;line-height:1.5;}
+
+  .card{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    padding:18px;
+    margin-bottom:14px;
+  }
+  .card h2{
+    font-size:13px;margin:0 0 12px;color:var(--text-dim);
+    font-weight:600;display:flex;align-items:center;gap:8px;
+  }
+  .card h2 i{color:var(--accent);width:16px;text-align:center;}
+
+  .seg{
+    display:flex;background:var(--bg-panel-2);border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:3px;gap:3px;
+  }
+  .seg button{
+    flex:1;border:none;background:transparent;color:var(--text-dim);
+    padding:9px 8px;border-radius:5px;font-size:13px;font-weight:500;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:background .15s,color .15s;
+  }
+  .seg button.active{background:var(--accent);color:var(--accent-ink);font-weight:600;}
+
+  .src-panel{margin-top:12px;}
+  .row-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{
+    border:1px solid var(--border-soft);background:var(--bg-panel-2);color:var(--text);
+    padding:9px 13px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;
+    cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+    transition:border-color .15s,transform .1s;
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn:active{transform:scale(.97);}
+  .btn i{color:var(--accent);}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;}
+  .btn.primary i{color:var(--accent-ink);}
+  .btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
+  .btn.small{padding:6px 10px;font-size:12px;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+  .gallery-cats{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
+  .cat-chip{
+    border:1px solid var(--border-soft);background:var(--bg-panel-2);color:var(--text-dim);
+    padding:6px 11px;border-radius:999px;font-size:12px;cursor:pointer;
+  }
+  .cat-chip:hover{border-color:var(--accent);color:var(--text);}
+
+  .status-line{font-size:12.5px;color:var(--text-faint);margin-top:10px;min-height:16px;}
+  .status-line.err{color:var(--danger);}
+  .status-line.ok{color:var(--ok);}
+
+  .thumb-strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;max-height:150px;overflow-y:auto;}
+  .thumb-strip img{width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid var(--border);}
+  .thumb-count{font-size:12px;color:var(--text-dim);margin-top:8px;}
+
+  select.field{
+    width:100%;background:var(--bg-panel-2);color:var(--text);border:1px solid var(--border-soft);
+    padding:10px 12px;border-radius:var(--radius-sm);font-size:14px;
+  }
+  .field-label{font-size:12px;color:var(--text-faint);margin:0 0 6px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;}
+  .toggle-row .t-label{font-size:13.5px;color:var(--text);font-weight:500;}
+  .toggle-row .t-sub{font-size:12px;color:var(--text-faint);margin-top:2px;}
+  .switch{position:relative;width:44px;height:26px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-tog{position:absolute;inset:0;background:var(--bg-panel-2);border:1px solid var(--border-soft);border-radius:999px;cursor:pointer;transition:.15s;}
+  .slider-tog:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:2.5px;background:var(--text-dim);border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider-tog{background:var(--accent);border-color:var(--accent);}
+  .switch input:checked + .slider-tog:before{transform:translateX(18px);background:var(--accent-ink);}
+
+  .start-bar{position:sticky;bottom:0;margin-top:6px;}
+  .start-btn{
+    width:100%;padding:15px;font-size:15.5px;border-radius:var(--radius-md);
+  }
+
+  /* ---------- SESSION SCREEN ---------- */
+  #sessionScreen{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+  .ad-bar{
+    height:44px;flex:none;background:var(--bg-panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+    font-size:11px;letter-spacing:.03em;
+  }
+
+  .toolbar{
+    flex:none;background:var(--bg-panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:6px;padding:7px 8px;overflow-x:auto;
+  }
+  .tb-btn{
+    flex:none;width:38px;height:38px;border-radius:var(--radius-sm);
+    background:var(--bg-panel-2);border:1px solid var(--border);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;
+    position:relative;
+  }
+  .tb-btn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+  .tb-btn:active{transform:scale(.94);}
+  .tb-swatch{width:20px;height:20px;border-radius:50%;border:2px solid var(--border-soft);}
+  .tb-sep{width:1px;height:24px;background:var(--border);flex:none;margin:0 2px;}
+  .tb-timers{
+    margin-left:auto;display:flex;gap:10px;flex:none;padding-right:4px;
+  }
+  .timer-chip{text-align:center;line-height:1.1;}
+  .timer-chip .tval{font-size:14px;font-weight:600;color:var(--text);}
+  .timer-chip .tlabel{font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;}
+
+  /* popover panels */
+  .popover{
+    position:fixed;left:50%;bottom:96px;transform:translateX(-50%);
+    width:min(92vw,380px);max-height:60vh;overflow-y:auto;
+    background:var(--bg-panel);border:1px solid var(--border-soft);
+    border-radius:var(--radius-md);box-shadow:var(--shadow);
+    padding:14px;z-index:50;
+  }
+  .popover h3{margin:0 0 10px;font-size:13px;color:var(--text-dim);display:flex;align-items:center;justify-content:space-between;}
+  .popover h3 .pro-tag{font-size:10px;background:var(--accent);color:var(--accent-ink);padding:2px 6px;border-radius:4px;font-weight:700;}
+  .popover .close-x{position:absolute;top:10px;right:10px;color:var(--text-faint);cursor:pointer;font-size:14px;}
+
+  .layer-row{
+    display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:7px;
+    border:1px solid transparent;margin-bottom:5px;cursor:pointer;
+  }
+  .layer-row.active{background:var(--bg-panel-2);border-color:var(--accent);}
+  .layer-row .lr-eye{color:var(--text-dim);width:20px;text-align:center;cursor:pointer;}
+  .layer-row .lr-name{flex:1;font-size:13px;}
+  .layer-row .lr-op{width:64px;}
+  .layer-row .lr-del{color:var(--text-faint);cursor:pointer;padding:4px;}
+  .layer-row .lr-del:hover{color:var(--danger);}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:var(--border-soft);border-radius:2px;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;}
+
+  .brush-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .brush-cell{
+    border:1px solid var(--border-soft);background:var(--bg-panel-2);border-radius:8px;
+    padding:8px 6px;text-align:center;cursor:pointer;
+  }
+  .brush-cell.active{border-color:var(--accent);background:rgba(217,162,75,.12);}
+  .brush-cell canvas{width:100%;height:26px;display:block;margin-bottom:5px;}
+  .brush-cell span{font-size:11px;color:var(--text-dim);}
+  .brush-cell.locked{opacity:.45;}
+
+  .slider-block{margin-bottom:12px;}
+  .slider-block .sb-head{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:5px;}
+  .color-row{display:flex;gap:7px;align-items:center;margin-top:4px;flex-wrap:wrap;}
+  .color-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border-soft);cursor:pointer;}
+  .color-dot.active{border-color:var(--accent);}
+  .color-custom{width:28px;height:28px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer;}
+
+  .time-preset{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+  .time-preset button{
+    border:1px solid var(--border-soft);background:var(--bg-panel-2);color:var(--text);
+    padding:8px 4px;border-radius:6px;font-size:12px;cursor:pointer;
+  }
+  .time-preset button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;}
+
+  /* ---------- STAGE ---------- */
+  .stage-wrap{
+    flex:1;position:relative;overflow:hidden;background:var(--bg-canvas);
+    touch-action:none;
+  }
+  .stage-content{
+    position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;
+  }
+  .stage-content img, .stage-content canvas{
+    position:absolute;top:0;left:0;width:100%;height:100%;display:block;
+  }
+  #refImg{object-fit:contain;background:#050506;pointer-events:none;user-select:none;}
+  #interactCanvas{pointer-events:auto;}
+  .viewer-only #interactCanvas, .viewer-only .layer-canvas{display:none;}
+
+  .stage-hint{
+    position:absolute;top:10px;left:10px;background:rgba(10,11,13,.7);
+    border:1px solid var(--border);padding:5px 10px;border-radius:6px;
+    font-size:11px;color:var(--text-dim);pointer-events:none;
+  }
+  .empty-stage{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--text-faint);font-size:13px;flex-direction:column;gap:8px;
+  }
+
+  /* bottom FAB bar */
+  .fab-bar{
+    position:absolute;left:0;right:0;bottom:18px;
+    display:flex;justify-content:center;align-items:center;gap:14px;
+    pointer-events:none;
+  }
+  .fab{
+    pointer-events:auto;
+    width:50px;height:50px;border-radius:50%;
+    background:var(--bg-panel);border:1px solid var(--border-soft);
+    color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow);cursor:pointer;transition:transform .1s;
+  }
+  .fab:active{transform:scale(.9);}
+  .fab.main{width:58px;height:58px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:19px;}
+  .fab-plus{position:relative;}
+  .fab-plus .fp-badge{
+    position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+    background:var(--bg-app);border:1px solid var(--border-soft);color:var(--text-dim);
+    font-size:9px;padding:1px 5px;border-radius:8px;white-space:nowrap;
+  }
+
+  .end-overlay{
+    position:absolute;inset:0;background:rgba(10,11,13,.88);
+    display:flex;align-items:center;justify-content:center;z-index:60;
+  }
+  .end-card{
+    background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:var(--radius-md);
+    padding:26px;width:min(90vw,360px);text-align:center;
+  }
+  .end-card i.big{font-size:30px;color:var(--accent);margin-bottom:10px;display:block;}
+  .end-card h2{margin:0 0 6px;font-size:18px;}
+  .end-card p{margin:0 0 18px;color:var(--text-dim);font-size:13px;}
+  .end-actions{display:flex;flex-direction:column;gap:8px;}
+
+  @media (min-width:760px){
+    .setup-wrap{max-width:640px;}
+    .fab{width:54px;height:54px;font-size:17px;}
+    .fab.main{width:62px;height:62px;font-size:20px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== SETUP SCREEN ===================== -->
+  <div id="setupScreen">
+    <div class="setup-wrap">
+      <div class="setup-header">
+        <div class="brand"><i class="fa-solid fa-compass-drawing"></i> REF STUDIO</div>
+        <h1>Sesión de referencias</h1>
+        <p>Elige tus imágenes, configura los tiempos y empieza a dibujar.</p>
+      </div>
+
+      <!-- Fuente de imágenes -->
+      <div class="card">
+        <h2><i class="fa-solid fa-images"></i> Imágenes de referencia</h2>
+        <div class="seg" id="srcSeg">
+          <button class="active" data-src="local"><i class="fa-solid fa-folder-open"></i> Carpeta local</button>
+          <button data-src="online"><i class="fa-solid fa-globe"></i> Galería online</button>
+        </div>
+
+        <div class="src-panel" id="srcLocal">
+          <div class="row-btns">
+            <button class="btn" id="btnPickFolder"><i class="fa-solid fa-folder-open"></i> Elegir carpeta</button>
+            <button class="btn" id="btnPickFiles"><i class="fa-solid fa-file-image"></i> Elegir imágenes</button>
+          </div>
+          <input type="file" id="folderInput" accept="image/*" multiple webkitdirectory style="display:none">
+          <input type="file" id="filesInput" accept="image/*" multiple style="display:none">
+        </div>
+
+        <div class="src-panel hidden" id="srcOnline">
+          <div class="gallery-cats">
+            <button class="cat-chip" data-q="oil portrait painting classical">Retratos clásicos</button>
+            <button class="cat-chip" data-q="landscape oil painting">Paisajes</button>
+            <button class="cat-chip" data-q="still life painting">Bodegones</button>
+            <button class="cat-chip" data-q="impressionist painting">Impresionismo</button>
+            <button class="cat-chip" data-q="academic figure study drawing">Figura / anatomía</button>
+            <button class="cat-chip" data-q="renaissance painting">Renacimiento</button>
+          </div>
+        </div>
+
+        <div class="status-line" id="srcStatus">No hay imágenes cargadas todavía.</div>
+        <div class="thumb-strip" id="thumbStrip"></div>
+      </div>
+
+      <!-- Orden -->
+      <div class="card">
+        <h2><i class="fa-solid fa-arrow-down-a-z"></i> Orden de las referencias</h2>
+        <div class="seg" id="orderSeg">
+          <button class="active" data-order="sequential"><i class="fa-solid fa-list-ol"></i> Orden de carga</button>
+          <button data-order="random"><i class="fa-solid fa-shuffle"></i> Aleatorio</button>
+          <button data-order="date"><i class="fa-solid fa-calendar"></i> Por fecha</button>
+        </div>
+      </div>
+
+      <!-- Tiempos -->
+      <div class="card">
+        <h2><i class="fa-solid fa-stopwatch"></i> Tiempos</h2>
+        <div class="two-col">
+          <div>
+            <p class="field-label">Duración por referencia</p>
+            <select class="field" id="refDurSelect"></select>
+          </div>
+          <div>
+            <p class="field-label">Duración de la sesión</p>
+            <select class="field" id="sessDurSelect"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dibujo -->
+      <div class="card">
+        <h2><i class="fa-solid fa-pen-nib"></i> Modo de dibujo</h2>
+        <div class="toggle-row">
+          <div>
+            <div class="t-label">Dibujar sobre las referencias</div>
+            <div class="t-sub">Si lo apagas, el teléfono solo muestra las imágenes (dibuja en papel u otro dispositivo).</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="drawModeToggle" checked>
+            <span class="slider-tog"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="start-bar">
+        <button class="btn primary start-btn" id="startBtn" disabled>
+          <i class="fa-solid fa-play"></i> Iniciar sesión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SESSION SCREEN ===================== -->
+  <div id="sessionScreen" class="hidden">
+    <div class="ad-bar">Espacio publicitario</div>
+
+    <div class="toolbar">
+      <button class="tb-btn" id="tbExit" title="Salir"><i class="fa-solid fa-xmark"></i></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="tbLayers" title="Capas"><i class="fa-solid fa-layer-group"></i></button>
+      <button class="tb-btn" id="tbBrush" title="Pinceles"><i class="fa-solid fa-paintbrush"></i></button>
+      <button class="tb-btn" id="tbColor" title="Color"><span class="tb-swatch" id="tbColorSwatch"></span></button>
+      <button class="tb-btn" id="tbUndo" title="Deshacer"><i class="fa-solid fa-rotate-left"></i></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="tbPan" title="Mover lienzo"><i class="fa-solid fa-hand"></i></button>
+      <button class="tb-btn" id="tbZoomReset" title="Restablecer zoom"><i class="fa-solid fa-expand"></i></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="tbTimers" title="Ajustes de tiempo"><i class="fa-solid fa-sliders"></i></button>
+      <button class="tb-btn" id="tbExport" title="Exportar dibujo"><i class="fa-solid fa-download"></i></button>
+
+      <div class="tb-timers">
+        <div class="timer-chip"><div class="tval mono" id="refTimeVal">00:00</div><div class="tlabel">Ref.</div></div>
+        <div class="timer-chip"><div class="tval mono" id="sessTimeVal">00:00</div><div class="tlabel">Sesión</div></div>
+      </div>
+    </div>
+
+    <div class="stage-wrap" id="stageWrap">
+      <div class="stage-content" id="stageContent">
+        <img id="refImg" alt="referencia">
+        <canvas id="interactCanvas"></canvas>
+      </div>
+      <div class="stage-hint mono" id="refCounter">0 / 0</div>
+      <div class="empty-stage hidden" id="emptyStage">
+        <i class="fa-solid fa-image" style="font-size:24px;"></i>
+        <span>Sin imágenes cargadas</span>
+      </div>
+
+      <div class="fab-bar">
+        <div class="fab" id="fabPrev"><i class="fa-solid fa-backward-step"></i></div>
+        <div class="fab main" id="fabPause"><i class="fa-solid fa-pause"></i></div>
+        <div class="fab" id="fabNext"><i class="fa-solid fa-forward-step"></i></div>
+        <div class="fab fab-plus" id="fabPlus">
+          <i class="fa-solid fa-clock"></i>
+          <span class="fp-badge" id="fpBadge">+1min</span>
+        </div>
+      </div>
+
+      <div class="end-overlay hidden" id="endOverlay">
+        <div class="end-card">
+          <i class="fa-solid fa-flag-checkered big"></i>
+          <h2>Sesión completada</h2>
+          <p id="endStats">Has revisado tus referencias.</p>
+          <div class="end-actions">
+            <button class="btn primary" id="endExport"><i class="fa-solid fa-download"></i> Exportar dibujo</button>
+            <button class="btn" id="endRestart"><i class="fa-solid fa-rotate-right"></i> Nueva sesión</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== POPOVERS ===================== -->
+  <div class="popover hidden" id="popLayers">
+    <span class="close-x"><i class="fa-solid fa-xmark"></i></span>
+    <h3>Capas <span id="layerCountTag"></span></h3>
+    <div id="layerList"></div>
+    <button class="btn small" id="btnAddLayer" style="width:100%;justify-content:center;margin-top:4px;">
+      <i class="fa-solid fa-plus"></i> Añadir capa
+    </button>
+    <div class="status-line" id="layerLimitMsg"></div>
+  </div>
+
+  <div class="popover hidden" id="popBrush">
+    <span class="close-x"><i class="fa-solid fa-xmark"></i></span>
+    <h3>Pinceles</h3>
+    <div class="brush-grid" id="brushGrid"></div>
+    <div class="slider-block">
+      <div class="sb-head"><span>Tamaño</span><span class="mono" id="sizeVal">8</span></div>
+      <input type="range" id="sizeRange" min="1" max="80" value="8">
+    </div>
+    <div class="slider-block">
+      <div class="sb-head"><span>Opacidad</span><span class="mono" id="opVal">100%</span></div>
+      <input type="range" id="opRange" min="1" max="100" value="100">
+    </div>
+    <div class="field-label" style="margin-top:4px;">Color</div>
+    <div class="color-row" id="colorRow"></div>
+  </div>
+
+  <div class="popover hidden" id="popTimers">
+    <span class="close-x"><i class="fa-solid fa-xmark"></i></span>
+    <h3>Ajustes de tiempo</h3>
+    <div class="field-label">Incremento del botón "+ tiempo"</div>
+    <div class="time-preset" id="incPreset"></div>
+    <div class="status-line">Mantén pulsado el botón de reloj en la sesión para abrir este ajuste rápidamente.</div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   ESTADO GLOBAL
+   ========================================================= */
+const state = {
+  refs: [],
+  order: 'sequential',
+  refDuration: 60,
+  sessionDuration: 1800,
+  refIndex: 0,
+  refRemaining: 60,
+  sessRemaining: 1800,
+  paused: true,
+  drawMode: true,
+  running: false,
+  timeIncrement: 60,
+  panMode: false,
+  zoom: 1, panX: 0, panY: 0,
+  maxLayersFree: 5,
+  color: '#1a1a1a',
+  brushSize: 10,
+  brushOpacity: 100,
+  activeBrushId: 'lapiz',
+};
+
+const COLORS = ['#1a1a1a','#5b3a29','#f4ede1','#8a2e2e','#2e4a6b','#f0bd6c'];
+
+const BRUSHES = [
+  {id:'lapiz', name:'Lápiz', type:'pencil', jitter:0.15, alphaMul:0.9},
+  {id:'tinta', name:'Tinta', type:'ink', jitter:0, alphaMul:1},
+  {id:'marcador', name:'Marcador', type:'marker', jitter:0, alphaMul:0.5},
+  {id:'aerografo', name:'Aerógrafo', type:'airbrush', jitter:0, alphaMul:0.3},
+  {id:'carboncillo', name:'Carboncillo', type:'charcoal', jitter:0.4, alphaMul:0.85},
+];
+const ERASER = {id:'borrador', name:'Borrador', type:'eraser', jitter:0, alphaMul:1};
+
+const REF_DURATIONS = [
+  [20,'20 seg'],[30,'30 seg'],[45,'45 seg'],[60,'1 min'],[90,'1.5 min'],
+  [120,'2 min'],[180,'3 min'],[300,'5 min'],[480,'8 min'],[600,'10 min'],
+];
+const SESSION_DURATIONS = [
+  [60,'1 min'],[300,'5 min'],[600,'10 min'],[900,'15 min'],[1200,'20 min'],
+  [1800,'30 min'],[2700,'45 min'],[3600,'1 h'],[5400,'1.5 h'],[7200,'2 h'],[null,'Sin límite'],
+];
+const INCREMENTS = [
+  [10,'+10s'],[30,'+30s'],[60,'+1min'],[120,'+2min'],[300,'+5min'],[600,'+10min'],[1800,'+30min'],[3600,'+1h'],
+];
+
+let layers = [];
+let activeLayerId = null;
+let currentStroke = null;
+let interact, refImg, stageWrap, stageContent;
+let tickHandle = null;
+let sessionCount = 0;
+
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function dist(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
+function fmtTime(s){
+  if(s===null || s===undefined) return '∞';
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s/60), sec = s%60;
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+function hexToRgba(hex,a){
+  const v = hex.replace('#','');
+  const r = parseInt(v.substring(0,2),16), g = parseInt(v.substring(2,4),16), b = parseInt(v.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* =========================================================
+   SETUP SCREEN — fuentes de imágenes
+   ========================================================= */
+const srcSeg = document.getElementById('srcSeg');
+const srcLocal = document.getElementById('srcLocal');
+const srcOnline = document.getElementById('srcOnline');
+srcSeg.addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...srcSeg.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const isLocal = btn.dataset.src === 'local';
+  srcLocal.classList.toggle('hidden', !isLocal);
+  srcOnline.classList.toggle('hidden', isLocal);
+});
+
+const srcStatus = document.getElementById('srcStatus');
+const thumbStrip = document.getElementById('thumbStrip');
+const startBtn = document.getElementById('startBtn');
+
+function setStatus(msg, kind){
+  srcStatus.textContent = msg;
+  srcStatus.className = 'status-line' + (kind ? ' '+kind : '');
+}
+
+function refreshThumbs(){
+  thumbStrip.innerHTML = '';
+  state.refs.slice(0,24).forEach(r=>{
+    const img = document.createElement('img');
+    img.src = r.url;
+    thumbStrip.appendChild(img);
+  });
+  startBtn.disabled = state.refs.length === 0;
+  if(state.refs.length){
+    setStatus(state.refs.length + ' imagen(es) lista(s) para usar.', 'ok');
+  }
+}
+
+document.getElementById('btnPickFolder').addEventListener('click', ()=>document.getElementById('folderInput').click());
+document.getElementById('btnPickFiles').addEventListener('click', ()=>document.getElementById('filesInput').click());
+
+function handleFileList(fileList){
+  const files = [...fileList].filter(f=>f.type.startsWith('image/'));
+  if(!files.length){ setStatus('No se encontraron imágenes en esa selección.', 'err'); return; }
+  state.refs = files.map(f=>({
+    url: URL.createObjectURL(f),
+    name: f.name,
+    date: f.lastModified || 0,
+  }));
+  refreshThumbs();
+}
+document.getElementById('folderInput').addEventListener('change', e=>handleFileList(e.target.files));
+document.getElementById('filesInput').addEventListener('change', e=>handleFileList(e.target.files));
+
+// galería online (Wikimedia Commons — dominio público)
+document.querySelectorAll('.cat-chip').forEach(chip=>{
+  chip.addEventListener('click', async ()=>{
+    setStatus('Buscando imágenes en línea…');
+    try{
+      const q = encodeURIComponent(chip.dataset.q);
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${q}&gsrlimit=24&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      const pages = data && data.query && data.query.pages;
+      if(!pages) throw new Error('Sin resultados');
+      const items = Object.values(pages)
+        .filter(p=>p.imageinfo && p.imageinfo[0] && /\.(jpe?g|png)(\?|$)/i.test(p.imageinfo[0].url))
+        .map(p=>({
+          url: p.imageinfo[0].thumburl || p.imageinfo[0].url,
+          name: p.title.replace('File:','').replace(/\.[a-zA-Z]+$/,''),
+          date: 0,
+        }));
+      if(!items.length) throw new Error('Sin imágenes válidas');
+      state.refs = items;
+      refreshThumbs();
+    }catch(err){
+      setStatus('No se pudo conectar con la galería online ahora mismo (' + err.message + '). Prueba con "Carpeta local" mientras tanto — en la versión publicada esto se conecta a Wikimedia Commons / Met / Rijksmuseum.', 'err');
+    }
+  });
+});
+
+document.getElementById('orderSeg').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...e.currentTarget.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.order = btn.dataset.order;
+});
+
+const refDurSelect = document.getElementById('refDurSelect');
+REF_DURATIONS.forEach(([v,label])=>{
+  const opt = document.createElement('option'); opt.value=v; opt.textContent=label;
+  if(v===60) opt.selected = true;
+  refDurSelect.appendChild(opt);
+});
+refDurSelect.addEventListener('change', ()=>state.refDuration = Number(refDurSelect.value));
+
+const sessDurSelect = document.getElementById('sessDurSelect');
+SESSION_DURATIONS.forEach(([v,label])=>{
+  const opt = document.createElement('option'); opt.value = v===null?'null':v; opt.textContent=label;
+  if(v===1800) opt.selected = true;
+  sessDurSelect.appendChild(opt);
+});
+sessDurSelect.addEventListener('change', ()=>{
+  state.sessionDuration = sessDurSelect.value==='null' ? null : Number(sessDurSelect.value);
+});
+
+document.getElementById('drawModeToggle').addEventListener('change', e=>{
+  state.drawMode = e.target.checked;
+});
+
+/* =========================================================
+   INICIO DE SESIÓN
+   ========================================================= */
+startBtn.addEventListener('click', startSession);
+
+function startSession(){
+  if(!state.refs.length) return;
+  let refs = [...state.refs];
+  if(state.order === 'random') shuffle(refs);
+  else if(state.order === 'date') refs.sort((a,b)=>a.date-b.date);
+  state.refs = refs;
+  state.refIndex = 0;
+  state.refRemaining = state.refDuration;
+  state.sessRemaining = state.sessionDuration;
+  state.paused = false;
+  sessionCount = 0;
+
+  document.getElementById('setupScreen').classList.add('hidden');
+  const session = document.getElementById('sessionScreen');
+  session.classList.remove('hidden');
+  session.classList.toggle('viewer-only', !state.drawMode);
+  document.getElementById('endOverlay').classList.add('hidden');
+
+  initStage();
+  showReference(0);
+  updatePauseIcon();
+  updateTimerDisplay();
+  if(tickHandle) clearInterval(tickHandle);
+  tickHandle = setInterval(tick, 1000);
+}
+
+function endSession(){
+  state.paused = true;
+  clearInterval(tickHandle);
+  document.getElementById('endStats').textContent =
+    'Revisaste ' + (sessionCount+1) + ' referencia(s) en esta sesión.';
+  document.getElementById('endOverlay').classList.remove('hidden');
+  updatePauseIcon();
+}
+
+document.getElementById('endRestart').addEventListener('click', ()=>{
+  document.getElementById('sessionScreen').classList.add('hidden');
+  document.getElementById('setupScreen').classList.remove('hidden');
+});
+document.getElementById('endExport').addEventListener('click', exportDrawing);
+
+/* =========================================================
+   TEMPORIZADORES
+   ========================================================= */
+function tick(){
+  if(state.paused) return;
+  state.refRemaining -= 1;
+  if(state.sessRemaining !== null) state.sessRemaining -= 1;
+  if(state.sessRemaining !== null && state.sessRemaining <= 0){
+    updateTimerDisplay();
+    endSession();
+    return;
+  }
+  if(state.refRemaining <= 0){
+    nextReference();
+    return;
+  }
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay(){
+  document.getElementById('refTimeVal').textContent = fmtTime(state.refRemaining);
+  document.getElementById('sessTimeVal').textContent = fmtTime(state.sessRemaining);
+}
+
+function updatePauseIcon(){
+  const icon = document.querySelector('#fabPause i');
+  icon.className = state.paused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+}
+
+document.getElementById('fabPause').addEventListener('click', ()=>{
+  state.paused = !state.paused;
+  updatePauseIcon();
+});
+
+document.getElementById('fabPrev').addEventListener('click', ()=>{
+  sessionCount = Math.max(0, sessionCount-1);
+  const n = state.refs.length;
+  state.refIndex = (state.refIndex - 1 + n) % n;
+  showReference(state.refIndex);
+  state.refRemaining = state.refDuration;
+  updateTimerDisplay();
+});
+document.getElementById('fabNext').addEventListener('click', ()=>nextReference());
+
+function nextReference(){
+  sessionCount += 1;
+  const n = state.refs.length;
+  state.refIndex = (state.refIndex + 1) % n;
+  showReference(state.refIndex);
+  state.refRemaining = state.refDuration;
+  updateTimerDisplay();
+}
+
+function showReference(i){
+  const r = state.refs[i];
+  if(!r) return;
+  refImg.src = r.url;
+  document.getElementById('refCounter').textContent = (i+1) + ' / ' + state.refs.length;
+  document.getElementById('emptyStage').classList.toggle('hidden', !!r);
+}
+
+// botón "+ tiempo": tap corto = suma incremento; mantener pulsado = abre ajustes
+const fabPlus = document.getElementById('fabPlus');
+let plusPressTimer = null, plusLongFired = false;
+fabPlus.addEventListener('pointerdown', ()=>{
+  plusLongFired = false;
+  plusPressTimer = setTimeout(()=>{
+    plusLongFired = true;
+    openPopover('popTimers');
+  }, 550);
+});
+fabPlus.addEventListener('pointerup', ()=>{
+  clearTimeout(plusPressTimer);
+  if(!plusLongFired){
+    state.refRemaining += state.timeIncrement;
+    if(state.sessRemaining !== null) state.sessRemaining += state.timeIncrement;
+    updateTimerDisplay();
+  }
+});
+fabPlus.addEventListener('pointerleave', ()=>clearTimeout(plusPressTimer));
+
+const incPreset = document.getElementById('incPreset');
+INCREMENTS.forEach(([v,label])=>{
+  const b = document.createElement('button');
+  b.textContent = label;
+  if(v===state.timeIncrement) b.classList.add('active');
+  b.addEventListener('click', ()=>{
+    state.timeIncrement = v;
+    [...incPreset.children].forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('fpBadge').textContent = label;
+  });
+  incPreset.appendChild(b);
+});
+
+/* =========================================================
+   POPOVERS (capas / pinceles / tiempos)
+   ========================================================= */
+function openPopover(id){
+  document.querySelectorAll('.popover').forEach(p=>p.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeAllPopovers(){
+  document.querySelectorAll('.popover').forEach(p=>p.classList.add('hidden'));
+}
+document.querySelectorAll('.popover .close-x').forEach(x=>{
+  x.addEventListener('click', e=>e.currentTarget.closest('.popover').classList.add('hidden'));
+});
+document.getElementById('tbLayers').addEventListener('click', ()=>openPopover('popLayers'));
+document.getElementById('tbBrush').addEventListener('click', ()=>openPopover('popBrush'));
+document.getElementById('tbTimers').addEventListener('click', ()=>openPopover('popTimers'));
+document.getElementById('tbColor').addEventListener('click', ()=>openPopover('popBrush'));
+
+document.getElementById('tbExit').addEventListener('click', ()=>{
+  if(confirm('¿Salir de la sesión actual? Perderás el progreso del temporizador.')){
+    clearInterval(tickHandle);
+    document.getElementById('sessionScreen').classList.add('hidden');
+    document.getElementById('setupScreen').classList.remove('hidden');
+    closeAllPopovers();
+  }
+});
+
+document.getElementById('tbPan').addEventListener('click', e=>{
+  state.panMode = !state.panMode;
+  e.currentTarget.classList.toggle('active', state.panMode);
+});
+document.getElementById('tbZoomReset').addEventListener('click', ()=>{
+  state.zoom = 1; state.panX = 0; state.panY = 0;
+  applyStageTransform();
+});
+document.getElementById('tbExport').addEventListener('click', exportDrawing);
+document.getElementById('tbUndo').addEventListener('click', ()=>{
+  const layer = getActiveLayer();
+  if(layer) undoLayer(layer);
+});
+
+/* =========================================================
+   ESCENARIO (stage): imagen + capas + zoom/pan
+   ========================================================= */
+function initStage(){
+  stageWrap = document.getElementById('stageWrap');
+  stageContent = document.getElementById('stageContent');
+  refImg = document.getElementById('refImg');
+  interact = document.getElementById('interactCanvas');
+
+  layers.forEach(l=>l.canvas.remove());
+  layers = [];
+  activeLayerId = null;
+
+  const rect = stageWrap.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(300, Math.round(rect.width * dpr));
+  const h = Math.max(300, Math.round(rect.height * dpr));
+
+  interact.width = w; interact.height = h;
+  addLayer(w,h,true);
+
+  state.zoom = 1; state.panX = 0; state.panY = 0;
+  applyStageTransform();
+  setupPointerHandling();
+  if(!handlersBound){
+    setupWheelZoom();
+    handlersBound = true;
+  }
+}
+let handlersBound = false;
+
+function applyStageTransform(){
+  stageContent.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+}
+
+/* ---------- capas ---------- */
+function addLayer(w,h,silent){
+  if(layers.length >= state.maxLayersFree){
+    document.getElementById('layerLimitMsg').textContent =
+      'Límite de 5 capas en el plan gratuito. Con Pro: hasta 120 capas.';
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.className = 'layer-canvas';
+  canvas.width = w || interact.width;
+  canvas.height = h || interact.height;
+  canvas.style.pointerEvents = 'none';
+  stageContent.insertBefore(canvas, interact);
+  const ctx = canvas.getContext('2d');
+  const layer = {
+    id: 'l' + Date.now() + Math.random().toString(16).slice(2),
+    name: 'Capa ' + (layers.length + 1),
+    canvas, ctx, visible: true, opacity: 1, undo: [],
+  };
+  layers.push(layer);
+  activeLayerId = layer.id;
+  if(!silent) renderLayerList();
+  renderLayerList();
+}
+document.getElementById('btnAddLayer').addEventListener('click', ()=>addLayer());
+
+function getActiveLayer(){
+  return layers.find(l=>l.id === activeLayerId);
+}
+
+function renderLayerList(){
+  const list = document.getElementById('layerList');
+  list.innerHTML = '';
+  document.getElementById('layerCountTag').textContent = `(${layers.length}/${state.maxLayersFree})`;
+  [...layers].reverse().forEach(layer=>{
+    const row = document.createElement('div');
+    row.className = 'layer-row' + (layer.id===activeLayerId ? ' active':'');
+    row.innerHTML = `
+      <span class="lr-eye"><i class="fa-solid ${layer.visible?'fa-eye':'fa-eye-slash'}"></i></span>
+      <span class="lr-name">${layer.name}</span>
+      <input type="range" class="lr-op" min="0" max="100" value="${Math.round(layer.opacity*100)}">
+      <span class="lr-del"><i class="fa-solid fa-trash"></i></span>
+    `;
+    row.querySelector('.lr-name').addEventListener('click', ()=>{ activeLayerId = layer.id; renderLayerList(); });
+    row.querySelector('.lr-eye').addEventListener('click', ()=>{
+      layer.visible = !layer.visible;
+      layer.canvas.style.display = layer.visible ? 'block' : 'none';
+      renderLayerList();
+    });
+    row.querySelector('.lr-op').addEventListener('input', e=>{
+      layer.opacity = Number(e.target.value)/100;
+      layer.canvas.style.opacity = layer.opacity;
+    });
+    row.querySelector('.lr-del').addEventListener('click', ()=>{
+      if(layers.length<=1) return;
+      layer.canvas.remove();
+      layers = layers.filter(l=>l.id!==layer.id);
+      if(activeLayerId===layer.id) activeLayerId = layers[layers.length-1].id;
+      renderLayerList();
+    });
+    list.appendChild(row);
+  });
+}
+
+/* ---------- pinceles: UI ---------- */
+const brushGrid = document.getElementById('brushGrid');
+function drawBrushPreview(cv, brush){
+  const ctx = cv.getContext('2d');
+  const w = cv.width = cv.clientWidth * 2;
+  const h = cv.height = cv.clientHeight * 2;
+  ctx.clearRect(0,0,w,h);
+  const pts = [];
+  for(let i=0;i<=20;i++){
+    const t = i/20;
+    pts.push({x: 8+t*(w-16), y: h/2 + Math.sin(t*Math.PI*2)*h*0.22, pressure: 0.3+0.7*Math.abs(Math.sin(t*Math.PI))});
+  }
+  const fakeStroke = { ctx, brush, size: h*0.28, opacity: 1, color: '#e9e7e2', lastMid: pts[0] };
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle = fakeStroke.color; ctx.fillStyle = fakeStroke.color;
+  ctx.globalCompositeOperation = brush.type==='marker' ? 'lighten' : 'source-over';
+  for(let i=1;i<pts.length;i++){
+    segmentRender(fakeStroke, pts[i-1], pts[i], 0);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function buildBrushGrid(){
+  brushGrid.innerHTML = '';
+  const all = [...BRUSHES, ERASER];
+  all.forEach(brush=>{
+    const cell = document.createElement('div');
+    cell.className = 'brush-cell' + (brush.id===state.activeBrushId ? ' active':'');
+    cell.innerHTML = `<canvas></canvas><span>${brush.name}</span>`;
+    cell.addEventListener('click', ()=>{
+      state.activeBrushId = brush.id;
+      [...brushGrid.children].forEach(c=>c.classList.remove('active'));
+      cell.classList.add('active');
+    });
+    brushGrid.appendChild(cell);
+    requestAnimationFrame(()=>drawBrushPreview(cell.querySelector('canvas'), brush));
+  });
+}
+buildBrushGrid();
+
+function getBrush(){
+  return [...BRUSHES, ERASER].find(b=>b.id===state.activeBrushId) || BRUSHES[0];
+}
+
+const sizeRange = document.getElementById('sizeRange');
+const sizeVal = document.getElementById('sizeVal');
+sizeRange.addEventListener('input', ()=>{
+  state.brushSize = Number(sizeRange.value);
+  sizeVal.textContent = state.brushSize;
+});
+const opRange = document.getElementById('opRange');
+const opVal = document.getElementById('opVal');
+opRange.addEventListener('input', ()=>{
+  state.brushOpacity = Number(opRange.value);
+  opVal.textContent = state.brushOpacity + '%';
+});
+
+const colorRow = document.getElementById('colorRow');
+COLORS.forEach(c=>{
+  const dot = document.createElement('div');
+  dot.className = 'color-dot' + (c===state.color?' active':'');
+  dot.style.background = c;
+  dot.addEventListener('click', ()=>{
+    state.color = c;
+    document.getElementById('tbColorSwatch').style.background = c;
+    [...colorRow.querySelectorAll('.color-dot')].forEach(d=>d.classList.remove('active'));
+    dot.classList.add('active');
+  });
+  colorRow.appendChild(dot);
+});
+const customColor = document.createElement('input');
+customColor.type = 'color'; customColor.className = 'color-custom'; customColor.value = state.color;
+customColor.addEventListener('input', ()=>{
+  state.color = customColor.value;
+  document.getElementById('tbColorSwatch').style.background = state.color;
+});
+colorRow.appendChild(customColor);
+document.getElementById('tbColorSwatch').style.background = state.color;
+
+/* =========================================================
+   MOTOR DE DIBUJO
+   ========================================================= */
+function pressureFactor(brush, pt, spd){
+  if(brush.type === 'marker') return 1;
+  const pr = pt.pressure;
+  if(pr && Math.abs(pr-0.5) > 0.02){
+    return clamp(0.3 + 0.85*pr, 0.15, 1.3);
+  }
+  return clamp(1 - spd*0.03, 0.45, 1.05);
+}
+
+function segmentRender(stroke, prev, pt, spd){
+  const ctx = stroke.ctx, brush = stroke.brush;
+  if(brush.type === 'airbrush' || brush.type === 'charcoal'){
+    stampAlong(stroke, prev, pt);
+    return;
+  }
+  const wPrev = stroke.size * pressureFactor(brush, prev, spd);
+  const wNew = stroke.size * pressureFactor(brush, pt, spd);
+  const w = Math.max(0.6, (wPrev+wNew)/2);
+  const newMid = {x:(prev.x+pt.x)/2, y:(prev.y+pt.y)/2};
+  const jitterA = brush.jitter ? (1 - brush.jitter/2 + Math.random()*brush.jitter) : 1;
+  ctx.globalAlpha = clamp(stroke.opacity * jitterA * brush.alphaMul, 0, 1);
+  ctx.lineWidth = w;
+  ctx.beginPath();
+  ctx.moveTo(stroke.lastMid.x, stroke.lastMid.y);
+  ctx.quadraticCurveTo(prev.x, prev.y, newMid.x, newMid.y);
+  ctx.stroke();
+  stroke.lastMid = newMid;
+}
+
+function stampAlong(stroke, p0, p1){
+  const ctx = stroke.ctx, brush = stroke.brush;
+  const d = dist(p0,p1);
+  const step = Math.max(2, stroke.size*0.16);
+  const steps = Math.max(1, Math.floor(d/step));
+  for(let i=0;i<=steps;i++){
+    const t = i/steps;
+    const x = p0.x + (p1.x-p0.x)*t;
+    const y = p0.y + (p1.y-p0.y)*t;
+    if(brush.type === 'airbrush'){
+      const r = stroke.size * (0.55 + Math.random()*0.15);
+      const grad = ctx.createRadialGradient(x,y,0,x,y,r);
+      const a = stroke.opacity * brush.alphaMul * 0.5 * (0.7+Math.random()*0.3);
+      grad.addColorStop(0, hexToRgba(stroke.color, a));
+      grad.addColorStop(1, hexToRgba(stroke.color, 0));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    } else {
+      const jx = (Math.random()-0.5)*stroke.size*0.6;
+      const jy = (Math.random()-0.5)*stroke.size*0.6;
+      const r = stroke.size * (0.12 + Math.random()*0.22);
+      ctx.globalAlpha = clamp(stroke.opacity * brush.alphaMul * (0.35+Math.random()*0.5), 0, 1);
+      ctx.fillStyle = stroke.color;
+      ctx.beginPath(); ctx.arc(x+jx,y+jy,r,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+function pushUndo(layer){
+  layer.undo.push(layer.ctx.getImageData(0,0,layer.canvas.width,layer.canvas.height));
+  if(layer.undo.length > 15) layer.undo.shift();
+}
+function undoLayer(layer){
+  if(layer.undo.length){
+    layer.ctx.putImageData(layer.undo.pop(), 0, 0);
+  }
+}
+
+function startStroke(x,y,pressure){
+  const layer = getActiveLayer();
+  if(!layer || !layer.visible) return null;
+  pushUndo(layer);
+  const ctx = layer.ctx;
+  const brush = getBrush();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle = state.color; ctx.fillStyle = state.color;
+  ctx.globalCompositeOperation = brush.type==='eraser' ? 'destination-out'
+    : brush.type==='marker' ? 'multiply' : 'source-over';
+  return {
+    ctx, layer, brush,
+    size: state.brushSize,
+    opacity: state.brushOpacity/100,
+    color: state.color,
+    last: {x,y,pressure,t:performance.now()},
+    lastMid: {x,y},
+  };
+}
+function strokeAddPoint(stroke,x,y,pressure){
+  const prev = stroke.last;
+  const now = performance.now();
+  const dt = Math.max(1, now-prev.t);
+  const spd = dist(prev,{x,y}) / dt * 16;
+  const pt = {x,y,pressure,t:now};
+  segmentRender(stroke, prev, pt, spd);
+  stroke.last = pt;
+}
+function endStroke(stroke){
+  if(stroke) stroke.ctx.globalCompositeOperation = 'source-over';
+}
+
+/* =========================================================
+   PUNTERO: dibujar + pan/zoom multitáctil
+   ========================================================= */
+const activePointers = new Map();
+const gesture = {active:false, startDist:0, startZoom:1, startMid:{x:0,y:0}, startPan:{x:0,y:0}};
+let panLast = null;
+
+function getCanvasPos(e){
+  const rect = interact.getBoundingClientRect();
+  const x = (e.clientX-rect.left)/rect.width*interact.width;
+  const y = (e.clientY-rect.top)/rect.height*interact.height;
+  return {x,y};
+}
+function twoPointsArr(){ return [...activePointers.values()]; }
+function twoPointDist(){ const [a,b] = twoPointsArr(); return dist(a,b); }
+function twoPointMid(){ const [a,b] = twoPointsArr(); return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+
+function setupPointerHandling(){
+  interact.onpointerdown = e=>{
+    interact.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    closeAllPopovers();
+    if(activePointers.size === 1){
+      if(state.panMode){
+        panLast = {x:e.clientX,y:e.clientY};
+      } else if(state.drawMode) {
+        const pos = getCanvasPos(e);
+        currentStroke = startStroke(pos.x,pos.y,e.pressure);
+      }
+    } else if(activePointers.size === 2){
+      if(currentStroke){ endStroke(currentStroke); currentStroke = null; }
+      gesture.active = true;
+      gesture.startDist = twoPointDist();
+      gesture.startZoom = state.zoom;
+      gesture.startMid = twoPointMid();
+      gesture.startPan = {x:state.panX, y:state.panY};
+    }
+  };
+  window.onpointermove = e=>{
+    if(!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if(gesture.active && activePointers.size===2){
+      const d = twoPointDist();
+      const scaleDelta = d / (gesture.startDist||1);
+      state.zoom = clamp(gesture.startZoom*scaleDelta, 0.2, 6);
+      const mid = twoPointMid();
+      state.panX = gesture.startPan.x + (mid.x - gesture.startMid.x);
+      state.panY = gesture.startPan.y + (mid.y - gesture.startMid.y);
+      applyStageTransform();
+    } else if(activePointers.size===1 && state.panMode && panLast){
+      state.panX += e.clientX - panLast.x;
+      state.panY += e.clientY - panLast.y;
+      panLast = {x:e.clientX,y:e.clientY};
+      applyStageTransform();
+    } else if(activePointers.size===1 && currentStroke){
+      const pos = getCanvasPos(e);
+      strokeAddPoint(currentStroke,pos.x,pos.y,e.pressure);
+    }
+  };
+  window.onpointerup = e=>{
+    activePointers.delete(e.pointerId);
+    panLast = null;
+    if(activePointers.size < 2) gesture.active = false;
+    if(activePointers.size === 0 && currentStroke){ endStroke(currentStroke); currentStroke = null; }
+  };
+  window.onpointercancel = e=>{
+    activePointers.delete(e.pointerId);
+    panLast = null;
+    gesture.active = false;
+    if(currentStroke){ endStroke(currentStroke); currentStroke = null; }
+  };
+}
+
+function setupWheelZoom(){
+  stageWrap.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const delta = -e.deltaY * 0.0015;
+    const newZoom = clamp(state.zoom*(1+delta), 0.2, 6);
+    const rect = stageWrap.getBoundingClientRect();
+    const cx = e.clientX-rect.left, cy = e.clientY-rect.top;
+    const ratio = newZoom/state.zoom;
+    state.panX = cx - (cx-state.panX)*ratio;
+    state.panY = cy - (cy-state.panY)*ratio;
+    state.zoom = newZoom;
+    applyStageTransform();
+  }, {passive:false});
+}
+
+/* =========================================================
+   EXPORTAR
+   ========================================================= */
+function exportDrawing(){
+  if(!layers.length) return;
+  const out = document.createElement('canvas');
+  out.width = interact.width; out.height = interact.height;
+  const octx = out.getContext('2d');
+  octx.fillStyle = '#ffffff';
+  octx.fillRect(0,0,out.width,out.height);
+  layers.forEach(l=>{
+    if(!l.visible) return;
+    octx.globalAlpha = l.opacity;
+    octx.drawImage(l.canvas,0,0,out.width,out.height);
+  });
+  octx.globalAlpha = 1;
+  out.toBlob(blob=>{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'dibujo-ref-studio.png';
+    a.click();
+  });
+}
+
+/* atajos de teclado (escritorio) */
+window.addEventListener('keydown', e=>{
+  if(document.getElementById('sessionScreen').classList.contains('hidden')) return;
+  if(e.code === 'Space'){ e.preventDefault(); state.paused = !state.paused; updatePauseIcon(); }
+  if(e.key === 'ArrowRight') document.getElementById('fabNext').click();
+  if(e.key === 'ArrowLeft') document.getElementById('fabPrev').click();
+  if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); const l=getActiveLayer(); if(l) undoLayer(l); }
+});
+</script>
+</body>
+</html>
