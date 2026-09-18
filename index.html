@@ -297,6 +297,12 @@
     background:var(--bg-app);border-radius:50%;color:var(--text-faint);
     font-size:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;
   }
+  .brush-cell .bc-edit{
+    position:absolute;top:2px;right:20px;width:16px;height:16px;
+    background:var(--bg-app);border-radius:50%;color:var(--text-faint);
+    font-size:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .brush-cell .bc-edit:hover, .brush-cell .bc-del:hover{color:var(--accent);}
   .brush-form{display:grid;gap:8px;margin-top:10px;}
   .brush-form label{font-size:12px;color:var(--text-dim);}
   .brush-form input[type=text]{background:var(--bg-panel-2);border:1px solid var(--border-soft);color:var(--text);padding:7px 9px;border-radius:6px;font-size:13px;width:100%;}
@@ -358,18 +364,20 @@
 
         <div class="src-panel hidden" id="srcOnline">
           <div class="seg" id="providerSeg">
-            <button class="active" data-provider="wikimedia">Wikimedia</button>
-            <button data-provider="cleveland">Cleveland (CC0)</button>
-            <button data-provider="aic">Art Institute Chicago</button>
+            <button class="active" data-provider="wikimedia"><i class="fa-solid fa-landmark"></i> Wikimedia</button>
+            <button data-provider="tumblr"><i class="fa-brands fa-tumblr"></i> Tumblr</button>
           </div>
-          <div class="gallery-cats">
-            <button class="cat-chip" data-q="oil portrait painting classical">Retratos clásicos</button>
-            <button class="cat-chip" data-q="landscape oil painting">Paisajes</button>
-            <button class="cat-chip" data-q="still life painting">Bodegones</button>
-            <button class="cat-chip" data-q="impressionist painting">Impresionismo</button>
-            <button class="cat-chip" data-q="academic figure study drawing">Figura / anatomía</button>
-            <button class="cat-chip" data-q="renaissance painting">Renacimiento</button>
+
+          <div id="tumblrKeyPanel" class="hidden" style="margin-top:12px;">
+            <p class="field-label">API key de Tumblr</p>
+            <div class="row-btns" style="flex-wrap:nowrap;">
+              <input type="text" id="tumblrApiKeyInput" placeholder="Pega aquí tu API key (consumer key)" style="flex:1;min-width:0;background:var(--bg-panel-2);border:1px solid var(--border-soft);color:var(--text);padding:9px 10px;border-radius:6px;font-size:13px;">
+              <button class="btn small" id="btnSaveTumblrKey"><i class="fa-solid fa-key"></i> Guardar</button>
+            </div>
+            <div class="status-line" id="tumblrKeyStatus" style="margin-top:6px;">Aún no tienes una API key guardada. Consíguela en tumblr.com/oauth/apps y pégala aquí para poder buscar imágenes por etiqueta.</div>
           </div>
+
+          <div class="gallery-cats" id="galleryCats"></div>
           <div class="status-line" id="galleryAttribution" style="margin-top:8px;">Fuente: Wikimedia Commons (dominio público). Se recomienda acreditar al autor si compartes tu dibujo.</div>
         </div>
 
@@ -440,6 +448,8 @@
         <button class="tb-btn" id="tbStabilizer" title="Estabilizador de trazo"><i class="fa-solid fa-gauge-high"></i></button>
         <button class="tb-btn" id="tbPredictive" title="Trazo predictivo"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
         <button class="tb-btn" id="tbUndo" title="Deshacer"><i class="fa-solid fa-rotate-left"></i></button>
+        <button class="tb-btn" id="tbRedo" title="Rehacer"><i class="fa-solid fa-rotate-right"></i></button>
+        <button class="tb-btn" id="tbShortcuts" title="Atajos de deshacer/rehacer"><i class="fa-solid fa-keyboard"></i></button>
         <div class="tb-sep"></div>
         <button class="tb-btn" id="tbPan" title="Mover lienzo"><i class="fa-solid fa-hand"></i></button>
         <button class="tb-btn" id="tbRotate" title="Girar 90°"><i class="fa-solid fa-rotate"></i></button>
@@ -548,11 +558,28 @@
           <label>Intensidad (0-1)
             <input type="number" id="bfAlpha" min="0" max="1" step="0.05" value="0.9">
           </label>
-          <label>&nbsp;
-            <button class="btn small" id="bfSave" style="width:100%;justify-content:center;">Guardar</button>
+          <label>Patrón / textura
+            <select id="bfPattern">
+              <option value="none">Ninguno (trazo liso)</option>
+              <option value="dots">Puntos</option>
+              <option value="hatch">Rayado / hachurado</option>
+              <option value="grain">Grano (papel/textura)</option>
+              <option value="scatter">Dispersión</option>
+            </select>
           </label>
         </div>
-        <button class="btn small" id="bfCancel" style="justify-content:center;width:100%;">Cancelar</button>
+        <div class="form-row">
+          <label>Escala del patrón (0-1.5)
+            <input type="number" id="bfPatternScale" min="0.05" max="1.5" step="0.05" value="0.3">
+          </label>
+          <label>Espaciado (0.05-1.2)
+            <input type="number" id="bfSpacing" min="0.05" max="1.2" step="0.05" value="0.16">
+          </label>
+        </div>
+        <div class="form-row">
+          <button class="btn small" id="bfSave" style="width:100%;justify-content:center;">Guardar</button>
+          <button class="btn small" id="bfCancel" style="justify-content:center;width:100%;">Cancelar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -603,6 +630,20 @@
       <input type="range" id="predRange" min="0" max="300" step="10" value="120">
     </div>
     <div class="status-line">Se adapta a la velocidad: menos "flotante" en trazos rápidos, más ayuda en detalles lentos. Al soltar, la línea siempre llega hasta donde levantaste el dedo. Puedes combinarlo con el estabilizador, aunque sumar ambos añade más retraso.</div>
+  </div>
+
+  <div class="popover hidden" id="popShortcuts">
+    <span class="close-x"><i class="fa-solid fa-xmark"></i></span>
+    <h3>Deshacer / rehacer</h3>
+    <div class="field-label">Tecla para deshacer (PC)</div>
+    <div class="row-btns" style="margin-bottom:12px;">
+      <button class="btn small mono" id="btnRecordUndo" style="flex:1;justify-content:center;">Ctrl+Z</button>
+    </div>
+    <div class="field-label">Tecla para rehacer (PC)</div>
+    <div class="row-btns" style="margin-bottom:12px;">
+      <button class="btn small mono" id="btnRecordRedo" style="flex:1;justify-content:center;">Ctrl+Y</button>
+    </div>
+    <div class="status-line" id="shortcutStatus">Toca un botón y luego pulsa la combinación de teclas que quieras usar. En pantallas táctiles: 2 toques con los dedos = deshacer, 3 toques = rehacer.</div>
   </div>
 
 </div>
@@ -782,13 +823,47 @@ function handleFileList(fileList){
 document.getElementById('folderInput').addEventListener('change', e=>handleFileList(e.target.files));
 document.getElementById('filesInput').addEventListener('change', e=>handleFileList(e.target.files));
 
-// galería online — tres fuentes de dominio público / CC0, sin necesidad de clave de API
+// galería online — Wikimedia (dominio público, sin clave) + Tumblr (necesita tu propia API key)
 let galleryProvider = 'wikimedia';
 const PROVIDER_ATTRIBUTION = {
   wikimedia: 'Fuente: Wikimedia Commons (dominio público). Se recomienda acreditar al autor si compartes tu dibujo.',
-  cleveland: 'Fuente: The Cleveland Museum of Art — Open Access (licencia CC0, uso libre).',
-  aic: 'Fuente: Art Institute of Chicago (obras de dominio público).',
+  tumblr: 'Fuente: Tumblr. Las imágenes pertenecen a sus autores/blogs originales — acredítalos si compartes tu dibujo.',
 };
+
+// categorías/hashtags por fuente: cada una dispara una búsqueda distinta según el proveedor activo
+const CATEGORY_SETS = {
+  wikimedia: [
+    {q:'oil portrait painting classical', label:'Retratos clásicos'},
+    {q:'landscape oil painting', label:'Paisajes'},
+    {q:'still life painting', label:'Bodegones'},
+    {q:'impressionist painting', label:'Impresionismo'},
+    {q:'academic figure study drawing', label:'Figura / anatomía'},
+    {q:'renaissance painting', label:'Renacimiento'},
+  ],
+  tumblr: [
+    {q:'art', label:'#art'},
+    {q:'digitalart', label:'#digitalart'},
+    {q:'illustration', label:'#illustration'},
+    {q:'sketch', label:'#sketch'},
+    {q:'conceptart', label:'#conceptart'},
+    {q:'fanart', label:'#fanart'},
+    {q:'photography', label:'#photography'},
+    {q:'anime', label:'#anime'},
+  ],
+};
+
+function renderGalleryCats(){
+  const wrap = document.getElementById('galleryCats');
+  wrap.innerHTML = '';
+  (CATEGORY_SETS[galleryProvider] || []).forEach(cat=>{
+    const chip = document.createElement('button');
+    chip.className = 'cat-chip';
+    chip.dataset.q = cat.q;
+    chip.textContent = cat.label;
+    chip.addEventListener('click', ()=>runGallerySearch(cat.q));
+    wrap.appendChild(chip);
+  });
+}
 
 async function fetchWikimedia(q){
   const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=24&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
@@ -808,36 +883,70 @@ async function fetchWikimedia(q){
   return items;
 }
 
-async function fetchCleveland(q){
-  const url = `https://openaccess-api.clevelandart.org/api/artworks/?q=${encodeURIComponent(q)}&has_image=1&limit=24`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  const data = await res.json();
-  const items = (data.data||[])
-    .filter(a=>a.images && (a.images.web || a.images.print))
-    .map(a=>({
-      url: (a.images.web && a.images.web.url) || (a.images.print && a.images.print.url),
-      name: a.title || 'Sin título',
-      date: 0,
-    }));
-  if(!items.length) throw new Error('sin resultados');
-  return items;
+/* ---------- Tumblr: guardado de la API key ----------
+   Igual que con los pinceles personalizados: usamos window.storage dentro de la
+   vista previa de Claude, y localStorage si este archivo se aloja fuera de Claude. */
+let tumblrApiKey = '';
+async function loadTumblrKey(){
+  try{
+    if(hasClaudeStorage){
+      const res = await window.storage.get('tumblr-api-key', false);
+      tumblrApiKey = (res && res.value) || '';
+    } else if(window.localStorage){
+      tumblrApiKey = localStorage.getItem('refstudio_tumblr_key') || '';
+    }
+  }catch(e){ tumblrApiKey = ''; }
+  const input = document.getElementById('tumblrApiKeyInput');
+  if(input) input.value = tumblrApiKey;
+  updateTumblrKeyStatus();
 }
+async function saveTumblrKey(key){
+  tumblrApiKey = key.trim();
+  try{
+    if(hasClaudeStorage) await window.storage.set('tumblr-api-key', tumblrApiKey, false);
+    else if(window.localStorage) localStorage.setItem('refstudio_tumblr_key', tumblrApiKey);
+  }catch(e){ console.error('No se pudo guardar la API key de Tumblr', e); }
+  updateTumblrKeyStatus();
+}
+function updateTumblrKeyStatus(){
+  const el = document.getElementById('tumblrKeyStatus');
+  if(!el) return;
+  el.textContent = tumblrApiKey
+    ? 'API key guardada. Ya puedes buscar por etiqueta en Tumblr.'
+    : 'Aún no tienes una API key guardada. Consíguela en tumblr.com/oauth/apps y pégala aquí para poder buscar imágenes por etiqueta.';
+  el.className = 'status-line' + (tumblrApiKey ? ' ok' : '');
+}
+document.getElementById('btnSaveTumblrKey').addEventListener('click', ()=>{
+  const val = document.getElementById('tumblrApiKeyInput').value || '';
+  saveTumblrKey(val);
+});
 
-async function fetchAIC(q){
-  const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=24&fields=id,title,image_id,is_public_domain`;
+// busca por hashtag/etiqueta en Tumblr y ordena por número de notas (lo más popular primero)
+async function fetchTumblr(tag){
+  if(!tumblrApiKey) throw new Error('Añade primero tu API key de Tumblr arriba');
+  const url = `https://api.tumblr.com/v2/tagged?tag=${encodeURIComponent(tag)}&api_key=${encodeURIComponent(tumblrApiKey)}&limit=20&filter=text`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('HTTP '+res.status);
   const data = await res.json();
-  const items = (data.data||[])
-    .filter(a=>a.image_id && a.is_public_domain)
-    .map(a=>({
-      url: `https://www.artic.edu/iiif/2/${a.image_id}/full/843,/0/default.jpg`,
-      name: a.title || 'Sin título',
-      date: 0,
-    }));
-  if(!items.length) throw new Error('sin obras de dominio público con imagen para esa búsqueda');
-  return items;
+  const posts = (data && data.response) || [];
+  const photoPosts = posts.filter(p=>p.photos && p.photos.length);
+  // la API de tagged no expone un "sort=popular" oficial, así que ordenamos
+  // nosotros por note_count dentro de lo que devuelve, para priorizar lo más popular
+  photoPosts.sort((a,b)=>(b.note_count||0)-(a.note_count||0));
+  const items = [];
+  photoPosts.forEach(p=>{
+    p.photos.forEach(ph=>{
+      const src = (ph.original_size && ph.original_size.url) || (ph.alt_sizes && ph.alt_sizes[0] && ph.alt_sizes[0].url);
+      if(!src) return;
+      items.push({
+        url: src,
+        name: (p.tags && p.tags.length ? '#'+p.tags[0] : 'tumblr') + ' · ' + (p.note_count||0) + ' notas',
+        date: p.timestamp ? p.timestamp*1000 : 0,
+      });
+    });
+  });
+  if(!items.length) throw new Error('sin imágenes para esa etiqueta');
+  return items.slice(0,24);
 }
 
 document.getElementById('providerSeg').addEventListener('click', e=>{
@@ -846,23 +955,23 @@ document.getElementById('providerSeg').addEventListener('click', e=>{
   btn.classList.add('active');
   galleryProvider = btn.dataset.provider;
   document.getElementById('galleryAttribution').textContent = PROVIDER_ATTRIBUTION[galleryProvider];
+  document.getElementById('tumblrKeyPanel').classList.toggle('hidden', galleryProvider !== 'tumblr');
+  renderGalleryCats();
 });
 
-document.querySelectorAll('.cat-chip').forEach(chip=>{
-  chip.addEventListener('click', async ()=>{
-    setStatus('Buscando imágenes en línea…');
-    try{
-      let items;
-      if(galleryProvider === 'cleveland') items = await fetchCleveland(chip.dataset.q);
-      else if(galleryProvider === 'aic') items = await fetchAIC(chip.dataset.q);
-      else items = await fetchWikimedia(chip.dataset.q);
-      state.refs = items;
-      refreshThumbs();
-    }catch(err){
-      setStatus('No se pudo conectar con esa galería ahora mismo (' + err.message + '). Prueba otra fuente o "Carpeta local".', 'err');
-    }
-  });
-});
+async function runGallerySearch(q){
+  setStatus('Buscando imágenes en línea…');
+  try{
+    const items = galleryProvider === 'tumblr' ? await fetchTumblr(q) : await fetchWikimedia(q);
+    state.refs = items;
+    refreshThumbs();
+  }catch(err){
+    setStatus('No se pudo conectar con esa galería ahora mismo (' + err.message + '). Prueba otra fuente o "Carpeta local".', 'err');
+  }
+}
+
+renderGalleryCats();
+loadTumblrKey();
 
 document.getElementById('orderSeg').addEventListener('click', e=>{
   const btn = e.target.closest('button'); if(!btn) return;
@@ -1237,6 +1346,11 @@ document.getElementById('tbUndo').addEventListener('click', ()=>{
   const layer = getActiveLayer();
   if(layer) undoLayer(layer);
 });
+document.getElementById('tbRedo').addEventListener('click', ()=>{
+  const layer = getActiveLayer();
+  if(layer) redoLayer(layer);
+});
+document.getElementById('tbShortcuts').addEventListener('click', ()=>openPopover('popShortcuts'));
 document.getElementById('tbEraseToggle').addEventListener('click', e=>{
   state.eraseMode = !state.eraseMode;
   e.currentTarget.classList.toggle('active', state.eraseMode);
@@ -1371,7 +1485,7 @@ function addLayer(w,h,silent){
   const layer = {
     id: 'l' + Date.now() + Math.random().toString(16).slice(2),
     name: 'Capa ' + (layers.length + 1),
-    canvas, ctx, visible: true, opacity: 1, undo: [],
+    canvas, ctx, visible: true, opacity: 1, undo: [], redo: [],
   };
   layers.push(layer);
   activeLayerId = layer.id;
@@ -1445,9 +1559,9 @@ function buildBrushGrid(){
     const cell = document.createElement('div');
     cell.className = 'brush-cell' + (brush.id===state.activeBrushId ? ' active':'') + (brush.custom ? ' custom':'');
     cell.innerHTML = `<canvas></canvas><span>${brush.name}</span>` +
-      (brush.custom ? `<span class="bc-del" title="Eliminar"><i class="fa-solid fa-xmark"></i></span>` : '');
+      (brush.custom ? `<span class="bc-edit" title="Ajustar"><i class="fa-solid fa-sliders"></i></span><span class="bc-del" title="Eliminar"><i class="fa-solid fa-xmark"></i></span>` : '');
     cell.addEventListener('click', e=>{
-      if(e.target.closest('.bc-del')) return;
+      if(e.target.closest('.bc-del') || e.target.closest('.bc-edit')) return;
       state.activeBrushId = brush.id;
       [...brushGrid.children].forEach(c=>c.classList.remove('active'));
       cell.classList.add('active');
@@ -1463,6 +1577,13 @@ function buildBrushGrid(){
         buildBrushGrid();
       });
     }
+    const edit = cell.querySelector('.bc-edit');
+    if(edit){
+      edit.addEventListener('click', e=>{
+        e.stopPropagation();
+        openBrushFormForEdit(brush);
+      });
+    }
     brushGrid.appendChild(cell);
     requestAnimationFrame(()=>drawBrushPreview(cell.querySelector('canvas'), brush));
   });
@@ -1470,23 +1591,75 @@ function buildBrushGrid(){
 buildBrushGrid();
 loadCustomBrushes();
 
-/* ---------- crear pincel personalizado ---------- */
+/* ---------- crear / ajustar pincel personalizado ---------- */
 const btnNewBrush = document.getElementById('btnNewBrush');
 const brushForm = document.getElementById('brushForm');
-btnNewBrush.addEventListener('click', ()=>brushForm.classList.toggle('hidden'));
-document.getElementById('bfCancel').addEventListener('click', ()=>brushForm.classList.add('hidden'));
-document.getElementById('bfSave').addEventListener('click', ()=>{
+const bfSaveBtn = document.getElementById('bfSave');
+let editingBrushId = null; // null = creando uno nuevo; si no, estamos ajustando ese pincel
+
+function fillBrushForm(brush){
+  document.getElementById('bfName').value = brush.name;
+  document.getElementById('bfType').value = brush.type;
+  document.getElementById('bfJitter').value = brush.jitter ?? 0.1;
+  document.getElementById('bfAlpha').value = brush.alphaMul ?? 0.9;
+  document.getElementById('bfPattern').value = brush.pattern || 'none';
+  document.getElementById('bfPatternScale').value = brush.patternScale ?? 0.3;
+  document.getElementById('bfSpacing').value = brush.spacing ?? 0.16;
+}
+function resetBrushForm(){
+  document.getElementById('bfName').value = '';
+  document.getElementById('bfType').value = 'pencil';
+  document.getElementById('bfJitter').value = 0.1;
+  document.getElementById('bfAlpha').value = 0.9;
+  document.getElementById('bfPattern').value = 'none';
+  document.getElementById('bfPatternScale').value = 0.3;
+  document.getElementById('bfSpacing').value = 0.16;
+}
+function openBrushFormForEdit(brush){
+  editingBrushId = brush.id;
+  fillBrushForm(brush);
+  bfSaveBtn.textContent = 'Guardar cambios';
+  brushForm.classList.remove('hidden');
+  brushForm.scrollIntoView({block:'nearest'});
+}
+btnNewBrush.addEventListener('click', ()=>{
+  if(!brushForm.classList.contains('hidden') && editingBrushId === null){
+    brushForm.classList.add('hidden');
+    return;
+  }
+  editingBrushId = null;
+  resetBrushForm();
+  bfSaveBtn.textContent = 'Guardar';
+  brushForm.classList.remove('hidden');
+});
+document.getElementById('bfCancel').addEventListener('click', ()=>{
+  editingBrushId = null;
+  brushForm.classList.add('hidden');
+});
+bfSaveBtn.addEventListener('click', ()=>{
   const name = (document.getElementById('bfName').value || '').trim();
   if(!name){ alert('Ponle un nombre al pincel'); return; }
   const type = document.getElementById('bfType').value;
   const jitter = clamp(Number(document.getElementById('bfJitter').value) || 0, 0, 1);
   const alphaMul = clamp(Number(document.getElementById('bfAlpha').value) || 0.9, 0, 1);
-  const id = 'custom_' + Date.now().toString(36);
-  customBrushes.push({id, name, type, jitter, alphaMul, custom:true});
+  const pattern = document.getElementById('bfPattern').value;
+  const patternScale = clamp(Number(document.getElementById('bfPatternScale').value) || 0.3, 0.05, 1.5);
+  const spacing = clamp(Number(document.getElementById('bfSpacing').value) || 0.16, 0.05, 1.2);
+  const brushData = {name, type, jitter, alphaMul, pattern, patternScale, spacing, custom:true};
+
+  if(editingBrushId){
+    const idx = customBrushes.findIndex(b=>b.id===editingBrushId);
+    if(idx>=0) customBrushes[idx] = {...customBrushes[idx], ...brushData};
+    state.activeBrushId = editingBrushId;
+  } else {
+    const id = 'custom_' + Date.now().toString(36);
+    customBrushes.push({id, ...brushData});
+    state.activeBrushId = id;
+  }
   saveCustomBrushes();
-  document.getElementById('bfName').value = '';
+  editingBrushId = null;
+  resetBrushForm();
   brushForm.classList.add('hidden');
-  state.activeBrushId = id;
   buildBrushGrid();
 });
 
@@ -1539,6 +1712,10 @@ function pressureFactor(brush, pt, spd){
 
 function segmentRender(stroke, prev, pt, spd){
   const ctx = stroke.ctx, brush = stroke.brush;
+  if(brush.pattern && brush.pattern !== 'none'){
+    stampPatternAlong(stroke, prev, pt);
+    return;
+  }
   if(brush.type === 'airbrush' || brush.type === 'charcoal'){
     stampAlong(stroke, prev, pt);
     return;
@@ -1586,13 +1763,187 @@ function stampAlong(stroke, p0, p1){
   }
 }
 
+/* ---------- atajos de teclado configurables (deshacer / rehacer en PC) ---------- */
+const DEFAULT_SHORTCUTS = {
+  undo: {ctrl:true, shift:false, alt:false, key:'z'},
+  redo: {ctrl:true, shift:false, alt:false, key:'y'},
+};
+let shortcuts = JSON.parse(JSON.stringify(DEFAULT_SHORTCUTS));
+let recordingShortcut = null;
+
+function shortcutLabel(sc){
+  const parts = [];
+  if(sc.ctrl) parts.push('Ctrl');
+  if(sc.shift) parts.push('Shift');
+  if(sc.alt) parts.push('Alt');
+  parts.push(sc.key.length===1 ? sc.key.toUpperCase() : sc.key);
+  return parts.join('+');
+}
+function renderShortcutButtons(){
+  const bu = document.getElementById('btnRecordUndo');
+  const br = document.getElementById('btnRecordRedo');
+  if(bu) bu.textContent = shortcutLabel(shortcuts.undo);
+  if(br) br.textContent = shortcutLabel(shortcuts.redo);
+}
+async function loadShortcuts(){
+  try{
+    if(hasClaudeStorage){
+      const res = await window.storage.get('shortcuts', false);
+      if(res && res.value) shortcuts = JSON.parse(res.value);
+    } else if(window.localStorage){
+      const raw = localStorage.getItem('refstudio_shortcuts');
+      if(raw) shortcuts = JSON.parse(raw);
+    }
+  }catch(e){ /* usamos los valores por defecto */ }
+  renderShortcutButtons();
+}
+async function saveShortcuts(){
+  try{
+    if(hasClaudeStorage) await window.storage.set('shortcuts', JSON.stringify(shortcuts), false);
+    else if(window.localStorage) localStorage.setItem('refstudio_shortcuts', JSON.stringify(shortcuts));
+  }catch(e){ console.error('No se pudieron guardar los atajos', e); }
+}
+function startRecordingShortcut(target, btn){
+  recordingShortcut = target;
+  [...document.querySelectorAll('#btnRecordUndo,#btnRecordRedo')].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.textContent = 'Pulsa una tecla…';
+  document.getElementById('shortcutStatus').textContent = 'Esperando combinación de teclas (puedes usar Ctrl, Shift o Alt junto con otra tecla)…';
+}
+document.getElementById('btnRecordUndo').addEventListener('click', e=>startRecordingShortcut('undo', e.currentTarget));
+document.getElementById('btnRecordRedo').addEventListener('click', e=>startRecordingShortcut('redo', e.currentTarget));
+window.addEventListener('keydown', e=>{
+  if(!recordingShortcut) return;
+  if(['Control','Shift','Alt','Meta'].includes(e.key)) return; // esperamos la tecla "real"
+  e.preventDefault();
+  shortcuts[recordingShortcut] = {
+    ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, alt: e.altKey, key: e.key.toLowerCase(),
+  };
+  recordingShortcut = null;
+  renderShortcutButtons();
+  saveShortcuts();
+  document.getElementById('shortcutStatus').textContent = 'Combinación guardada.';
+}, true);
+function matchesShortcut(e, sc){
+  return e.key.toLowerCase() === sc.key
+    && !!(e.ctrlKey || e.metaKey) === !!sc.ctrl
+    && e.shiftKey === !!sc.shift
+    && e.altKey === !!sc.alt;
+}
+loadShortcuts();
+
+/* ---------- deshacer/rehacer con toques múltiples (pantallas táctiles) ----------
+   2 dedos tocando y soltando a la vez = deshacer · 3 dedos = rehacer. */
+const tapPositions = new Map();
+let tapTrack = {active:false, startT:0, peak:0, moved:false, count:0};
+function tapDown(e){
+  if(e.pointerType !== 'touch') return;
+  tapPositions.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(!tapTrack.active) tapTrack = {active:true, startT:performance.now(), peak:0, moved:false, count:0};
+  tapTrack.count++;
+  tapTrack.peak = Math.max(tapTrack.peak, tapTrack.count);
+}
+function tapMove(e){
+  if(e.pointerType !== 'touch' || !tapTrack.active) return;
+  const p = tapPositions.get(e.pointerId);
+  if(p && dist(p, {x:e.clientX, y:e.clientY}) > 14) tapTrack.moved = true;
+}
+function tapUp(e){
+  if(e.pointerType !== 'touch') return;
+  tapPositions.delete(e.pointerId);
+  if(!tapTrack.active) return;
+  tapTrack.count = Math.max(0, tapTrack.count - 1);
+  if(tapTrack.count === 0){
+    const dur = performance.now() - tapTrack.startT;
+    if(!tapTrack.moved && dur < 350 && tapTrack.peak >= 2){
+      const layer = getActiveLayer();
+      if(layer){
+        if(tapTrack.peak === 2) undoLayer(layer);
+        else if(tapTrack.peak >= 3) redoLayer(layer);
+      }
+    }
+    tapTrack = {active:false, startT:0, peak:0, moved:false, count:0};
+  }
+}
+function tapReset(){
+  tapPositions.clear();
+  tapTrack = {active:false, startT:0, peak:0, moved:false, count:0};
+}
+
+// dibuja un pincel con patrón/textura (puntos, rayado, grano o dispersión) a lo
+// largo de un segmento del trazo. "spacing" controla cada cuánto se estampa y
+// "patternScale" el tamaño de cada elemento del patrón.
+function stampPatternAlong(stroke, p0, p1){
+  const ctx = stroke.ctx, brush = stroke.brush;
+  const spacing = clamp(brush.spacing ?? 0.16, 0.04, 1.2);
+  const scale = clamp(brush.patternScale ?? 0.3, 0.05, 1.5);
+  const d = dist(p0,p1);
+  const step = Math.max(1.5, stroke.size*spacing);
+  const steps = Math.max(1, Math.floor(d/step));
+  const angBase = Math.atan2(p1.y-p0.y, p1.x-p0.x);
+  ctx.fillStyle = stroke.color;
+  ctx.strokeStyle = stroke.color;
+  for(let i=0;i<=steps;i++){
+    const t = i/steps;
+    const x = p0.x + (p1.x-p0.x)*t;
+    const y = p0.y + (p1.y-p0.y)*t;
+    const jitterA = brush.jitter ? (1 - brush.jitter/2 + Math.random()*brush.jitter) : 1;
+    const baseAlpha = clamp(stroke.opacity * jitterA * brush.alphaMul, 0, 1);
+
+    if(brush.pattern === 'dots'){
+      const r = stroke.size * scale * (0.35 + Math.random()*0.3);
+      ctx.globalAlpha = baseAlpha;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    } else if(brush.pattern === 'hatch'){
+      const len = stroke.size * (0.6 + scale);
+      const ang = angBase + Math.PI/2 + (Math.random()-0.5)*0.6;
+      const hx = Math.cos(ang)*len/2, hy = Math.sin(ang)*len/2;
+      ctx.globalAlpha = baseAlpha * 0.85;
+      ctx.lineWidth = Math.max(0.6, stroke.size*0.06);
+      ctx.beginPath(); ctx.moveTo(x-hx,y-hy); ctx.lineTo(x+hx,y+hy); ctx.stroke();
+    } else if(brush.pattern === 'grain'){
+      const count = 2 + Math.round(scale*6);
+      for(let k=0;k<count;k++){
+        const jx = (Math.random()-0.5)*stroke.size*0.9;
+        const jy = (Math.random()-0.5)*stroke.size*0.9;
+        const r = stroke.size * 0.05 * (0.4+Math.random());
+        ctx.globalAlpha = baseAlpha * (0.3+Math.random()*0.5);
+        ctx.beginPath(); ctx.arc(x+jx,y+jy,r,0,Math.PI*2); ctx.fill();
+      }
+    } else if(brush.pattern === 'scatter'){
+      const jx = (Math.random()-0.5)*stroke.size*(0.7+scale);
+      const jy = (Math.random()-0.5)*stroke.size*(0.7+scale);
+      const r = stroke.size * scale * (0.25+Math.random()*0.3);
+      ctx.globalAlpha = baseAlpha * (0.5+Math.random()*0.4);
+      ctx.beginPath(); ctx.arc(x+jx,y+jy,r,0,Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
 function pushUndo(layer){
   layer.undo.push(layer.canvas.toDataURL('image/png'));
   if(layer.undo.length > 8) layer.undo.shift();
+  layer.redo = []; // una acción nueva rompe la rama de "rehacer"
 }
 function undoLayer(layer){
   if(!layer.undo.length) return;
+  if(!layer.redo) layer.redo = [];
+  layer.redo.push(layer.canvas.toDataURL('image/png'));
+  if(layer.redo.length > 8) layer.redo.shift();
   const url = layer.undo.pop();
+  const img = new Image();
+  img.onload = ()=>{
+    layer.ctx.clearRect(0,0,layer.canvas.width,layer.canvas.height);
+    layer.ctx.drawImage(img,0,0,layer.canvas.width,layer.canvas.height);
+  };
+  img.src = url;
+}
+function redoLayer(layer){
+  if(!layer.redo || !layer.redo.length) return;
+  layer.undo.push(layer.canvas.toDataURL('image/png'));
+  if(layer.undo.length > 8) layer.undo.shift();
+  const url = layer.redo.pop();
   const img = new Image();
   img.onload = ()=>{
     layer.ctx.clearRect(0,0,layer.canvas.width,layer.canvas.height);
@@ -1685,6 +2036,7 @@ function setupPointerHandling(){
   interact.onpointerdown = e=>{
     interact.setPointerCapture(e.pointerId);
     activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    tapDown(e);
     closeAllPopovers();
     const wantsPan = state.panMode || e.button === 1; // toggle "mano" o botón central del ratón
     if(activePointers.size === 1){
@@ -1722,6 +2074,7 @@ function setupPointerHandling(){
     }
   };
   window.onpointermove = e=>{
+    tapMove(e);
     if(!activePointers.has(e.pointerId)) return;
     activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
     if(gesture.active && activePointers.size===2){
@@ -1769,6 +2122,7 @@ function setupPointerHandling(){
     }
   };
   window.onpointerup = e=>{
+    tapUp(e);
     activePointers.delete(e.pointerId);
     panLast = null;
     if(activePointers.size < 2) gesture.active = false;
@@ -1776,6 +2130,7 @@ function setupPointerHandling(){
     if(activePointers.size === 0 && currentStroke){ endStroke(currentStroke); currentStroke = null; }
   };
   window.onpointercancel = e=>{
+    tapReset();
     activePointers.delete(e.pointerId);
     panLast = null;
     gesture.active = false;
@@ -1929,7 +2284,10 @@ window.addEventListener('keydown', e=>{
   if(e.code === 'Space'){ e.preventDefault(); state.paused = !state.paused; updatePauseIcon(); }
   if(e.key === 'ArrowRight') document.getElementById('fabNext').click();
   if(e.key === 'ArrowLeft') document.getElementById('fabPrev').click();
-  if((e.ctrlKey||e.metaKey) && e.key==='z'){ e.preventDefault(); const l=getActiveLayer(); if(l) undoLayer(l); }
+  if(!recordingShortcut){
+    if(matchesShortcut(e, shortcuts.undo)){ e.preventDefault(); const l=getActiveLayer(); if(l) undoLayer(l); }
+    else if(matchesShortcut(e, shortcuts.redo)){ e.preventDefault(); const l=getActiveLayer(); if(l) redoLayer(l); }
+  }
 });
 </script>
 </body>
