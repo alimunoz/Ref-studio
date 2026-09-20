@@ -111,6 +111,11 @@
   }
   .cat-chip:hover{border-color:var(--accent);color:var(--text);}
 
+  .text-input{
+    flex:1;min-width:0;background:var(--bg-panel-2);border:1px solid var(--border-soft);
+    color:var(--text);padding:9px 10px;border-radius:6px;font-size:13px;
+  }
+
   .status-line{font-size:12.5px;color:var(--text-faint);margin-top:10px;min-height:16px;}
   .status-line.err{color:var(--danger);}
   .status-line.ok{color:var(--ok);}
@@ -190,6 +195,8 @@
   .layer-row .lr-op{width:64px;}
   .layer-row .lr-del{color:var(--text-faint);cursor:pointer;padding:4px;}
   .layer-row .lr-del:hover{color:var(--danger);}
+  .layer-row .lr-lock{color:var(--text-faint);padding:4px;font-size:11px;}
+  .layer-row.ref-row{cursor:default;border:1px dashed var(--border-soft);margin-top:8px;background:rgba(217,162,75,.05);}
   input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:var(--border-soft);border-radius:2px;}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;}
   input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;}
@@ -252,7 +259,10 @@
   .empty-stage{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--text-faint);font-size:13px;flex-direction:column;gap:8px;
+    pointer-events:none;text-align:center;padding:0 24px;
   }
+  .empty-stage .btn{pointer-events:auto;}
+  .empty-stage.err{color:var(--danger);}
 
   /* bottom FAB bar */
   .fab-bar{
@@ -371,14 +381,34 @@
           <div id="tumblrKeyPanel" class="hidden" style="margin-top:12px;">
             <p class="field-label">API key de Tumblr</p>
             <div class="row-btns" style="flex-wrap:nowrap;">
-              <input type="text" id="tumblrApiKeyInput" placeholder="Pega aquí tu API key (consumer key)" style="flex:1;min-width:0;background:var(--bg-panel-2);border:1px solid var(--border-soft);color:var(--text);padding:9px 10px;border-radius:6px;font-size:13px;">
+              <input type="text" id="tumblrApiKeyInput" class="text-input" placeholder="Pega aquí tu API key (consumer key)">
               <button class="btn small" id="btnSaveTumblrKey"><i class="fa-solid fa-key"></i> Guardar</button>
             </div>
             <div class="status-line" id="tumblrKeyStatus" style="margin-top:6px;">Aún no tienes una API key guardada. Consíguela en tumblr.com/oauth/apps y pégala aquí para poder buscar imágenes por etiqueta.</div>
           </div>
 
+          <div class="two-col" style="margin-top:12px;">
+            <div>
+              <p class="field-label">Cantidad de imágenes</p>
+              <select class="field" id="countSelect">
+                <option value="30">30</option>
+                <option value="60" selected>60</option>
+                <option value="100">100</option>
+                <option value="150">150</option>
+              </select>
+            </div>
+            <div>
+              <p class="field-label">Tu propia búsqueda</p>
+              <div class="row-btns" style="flex-wrap:nowrap;">
+                <input type="text" id="customQuery" class="text-input" placeholder="p. ej. gesture" maxlength="60">
+                <button class="btn small" id="btnCustomSearch" title="Buscar"><i class="fa-solid fa-magnifying-glass"></i></button>
+              </div>
+            </div>
+          </div>
+
           <div class="gallery-cats" id="galleryCats"></div>
           <div class="status-line" id="galleryAttribution" style="margin-top:8px;">Fuente: Wikimedia Commons (dominio público). Se recomienda acreditar al autor si compartes tu dibujo.</div>
+          <div class="status-line" style="margin-top:2px;">Cada vez que toques una categoría se carga una tanda distinta.</div>
         </div>
 
         <div class="status-line" id="srcStatus">No hay imágenes cargadas todavía.</div>
@@ -478,7 +508,8 @@
       </div>
       <div class="empty-stage hidden" id="emptyStage">
         <i class="fa-solid fa-image" style="font-size:24px;"></i>
-        <span>Sin imágenes cargadas</span>
+        <span id="emptyMsg">Sin imágenes cargadas</span>
+        <button class="btn small hidden" id="btnRetryRef"><i class="fa-solid fa-rotate-right"></i> Reintentar</button>
       </div>
 
       <div class="fab-bar">
@@ -677,6 +708,9 @@ const state = {
   stabilizerStrength: 55,
   predictiveEnabled: false,
   predictiveSmoothMs: 120,
+  // la referencia se comporta como una capa más (visibilidad + opacidad)
+  refVisible: true,
+  refOpacity: 1,
 };
 
 const COLORS = ['#1a1a1a','#5b3a29','#f4ede1','#8a2e2e','#2e4a6b','#f0bd6c'];
@@ -798,6 +832,7 @@ function refreshThumbs(){
   thumbStrip.innerHTML = '';
   state.refs.slice(0,24).forEach(r=>{
     const img = document.createElement('img');
+    img.loading = 'lazy';
     img.src = r.url;
     thumbStrip.appendChild(img);
   });
@@ -813,8 +848,11 @@ document.getElementById('btnPickFiles').addEventListener('click', ()=>document.g
 function handleFileList(fileList){
   const files = [...fileList].filter(f=>f.type.startsWith('image/'));
   if(!files.length){ setStatus('No se encontraron imágenes en esa selección.', 'err'); return; }
+  // guardamos también el File original: si el navegador invalida la URL temporal
+  // (pasa en sesiones largas / al volver de segundo plano) podemos crear otra.
   state.refs = files.map(f=>({
     url: URL.createObjectURL(f),
+    file: f,
     name: f.name,
     date: f.lastModified || 0,
   }));
@@ -839,6 +877,14 @@ const CATEGORY_SETS = {
     {q:'impressionist painting', label:'Impresionismo'},
     {q:'academic figure study drawing', label:'Figura / anatomía'},
     {q:'renaissance painting', label:'Renacimiento'},
+    {q:'baroque painting', label:'Barroco'},
+    {q:'romanticism painting', label:'Romanticismo'},
+    {q:'charcoal sketch drawing', label:'Bocetos'},
+    {q:'botanical illustration', label:'Botánica'},
+    {q:'animal painting', label:'Animales'},
+    {q:'ukiyo-e woodblock print', label:'Ukiyo-e'},
+    {q:'marble sculpture statue', label:'Escultura'},
+    {q:'seascape painting', label:'Marinas'},
   ],
   tumblr: [
     {q:'art', label:'#art'},
@@ -849,6 +895,18 @@ const CATEGORY_SETS = {
     {q:'fanart', label:'#fanart'},
     {q:'photography', label:'#photography'},
     {q:'anime', label:'#anime'},
+    {q:'drawing', label:'#drawing'},
+    {q:'painting', label:'#painting'},
+    {q:'characterdesign', label:'#characterdesign'},
+    {q:'figuredrawing', label:'#figuredrawing'},
+    {q:'anatomy', label:'#anatomy'},
+    {q:'portrait', label:'#portrait'},
+    {q:'landscape', label:'#landscape'},
+    {q:'architecture', label:'#architecture'},
+    {q:'nature', label:'#nature'},
+    {q:'3dart', label:'#3dart'},
+    {q:'pixelart', label:'#pixelart'},
+    {q:'creaturedesign', label:'#creaturedesign'},
   ],
 };
 
@@ -865,22 +923,42 @@ function renderGalleryCats(){
   });
 }
 
-async function fetchWikimedia(q){
-  const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=24&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
+function getGalleryCount(){
+  return Number(document.getElementById('countSelect').value) || 60;
+}
+
+async function fetchWikimediaPage(q, offset){
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=50&gsroffset=${offset}&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('HTTP '+res.status);
   const data = await res.json();
   const pages = data && data.query && data.query.pages;
   if(!pages) throw new Error('sin resultados');
-  const items = Object.values(pages)
+  return Object.values(pages)
     .filter(p=>p.imageinfo && p.imageinfo[0] && /\.(jpe?g|png)(\?|$)/i.test(p.imageinfo[0].url))
     .map(p=>({
       url: p.imageinfo[0].thumburl || p.imageinfo[0].url,
       name: p.title.replace('File:','').replace(/\.[a-zA-Z]+$/,''),
       date: 0,
     }));
+}
+
+// pide varias "páginas" en posiciones aleatorias del conjunto de resultados,
+// así cada búsqueda trae una tanda distinta y más grande
+async function fetchWikimedia(q, count){
+  const pool = shuffle([0,50,100,150,200,250,300,350,400]);
+  const nReq = clamp(Math.ceil(count/35), 1, 5);
+  const offsets = pool.slice(0, nReq);
+  let settled = await Promise.allSettled(offsets.map(o=>fetchWikimediaPage(q, o)));
+  let items = [];
+  settled.forEach(s=>{ if(s.status==='fulfilled') items.push(...s.value); });
+  if(!items.length){
+    items = await fetchWikimediaPage(q, 0); // respaldo: primera página
+  }
+  const seen = new Set();
+  items = items.filter(it=>{ if(seen.has(it.url)) return false; seen.add(it.url); return true; });
   if(!items.length) throw new Error('sin imágenes válidas');
-  return items;
+  return shuffle(items).slice(0, count);
 }
 
 /* ---------- Tumblr: guardado de la API key ----------
@@ -921,23 +999,54 @@ document.getElementById('btnSaveTumblrKey').addEventListener('click', ()=>{
   saveTumblrKey(val);
 });
 
-// busca por hashtag/etiqueta en Tumblr y ordena por número de notas (lo más popular primero)
-async function fetchTumblr(tag){
-  if(!tumblrApiKey) throw new Error('Añade primero tu API key de Tumblr arriba');
-  const url = `https://api.tumblr.com/v2/tagged?tag=${encodeURIComponent(tag)}&api_key=${encodeURIComponent(tumblrApiKey)}&limit=20&filter=text`;
+// elige un tamaño razonable (≤1280px de ancho): el "original" de Tumblr puede pesar
+// varios MB y con muchas imágenes agota la memoria del WebView (imágenes rotas).
+function pickTumblrSize(ph){
+  const alts = (ph.alt_sizes || []).filter(s=>s && s.url);
+  const ok = alts.filter(s=>s.width <= 1280).sort((a,b)=>b.width-a.width);
+  if(ok.length) return ok[0].url;
+  if(alts.length) return alts[alts.length-1].url; // la más pequeña disponible
+  return ph.original_size && ph.original_size.url;
+}
+
+async function fetchTumblrPage(tag, before){
+  const url = `https://api.tumblr.com/v2/tagged?tag=${encodeURIComponent(tag)}&api_key=${encodeURIComponent(tumblrApiKey)}&limit=20&filter=text&before=${before}`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('HTTP '+res.status);
   const data = await res.json();
-  const posts = (data && data.response) || [];
+  return (data && data.response) || [];
+}
+
+// La API de "tagged" solo devuelve 20 posts por llamada y empieza siempre por lo más
+// reciente (por eso salían siempre las mismas). Aquí pedimos varias páginas desde
+// momentos aleatorios de los últimos 4 años, juntamos todo, quitamos repetidas y
+// priorizamos lo más popular (note_count).
+async function fetchTumblr(tag, count){
+  if(!tumblrApiKey) throw new Error('Añade primero tu API key de Tumblr arriba');
+  tag = tag.replace(/^#/,'').trim();
+  const nPages = clamp(Math.ceil(count/8), 5, 14);
+  const now = Math.floor(Date.now()/1000);
+  const span = 4*365*86400;
+  const stamps = [now];
+  for(let i=1;i<nPages;i++) stamps.push(now - Math.floor(Math.random()*span));
+  const settled = await Promise.allSettled(stamps.map(ts=>fetchTumblrPage(tag, ts)));
+  const posts = [];
+  let firstErr = null;
+  settled.forEach(s=>{
+    if(s.status==='fulfilled') posts.push(...s.value);
+    else if(!firstErr) firstErr = s.reason;
+  });
+  if(!posts.length && firstErr) throw firstErr;
+
   const photoPosts = posts.filter(p=>p.photos && p.photos.length);
-  // la API de tagged no expone un "sort=popular" oficial, así que ordenamos
-  // nosotros por note_count dentro de lo que devuelve, para priorizar lo más popular
   photoPosts.sort((a,b)=>(b.note_count||0)-(a.note_count||0));
+  const seen = new Set();
   const items = [];
   photoPosts.forEach(p=>{
     p.photos.forEach(ph=>{
-      const src = (ph.original_size && ph.original_size.url) || (ph.alt_sizes && ph.alt_sizes[0] && ph.alt_sizes[0].url);
-      if(!src) return;
+      const src = pickTumblrSize(ph);
+      if(!src || seen.has(src)) return;
+      seen.add(src);
       items.push({
         url: src,
         name: (p.tags && p.tags.length ? '#'+p.tags[0] : 'tumblr') + ' · ' + (p.note_count||0) + ' notas',
@@ -946,7 +1055,7 @@ async function fetchTumblr(tag){
     });
   });
   if(!items.length) throw new Error('sin imágenes para esa etiqueta');
-  return items.slice(0,24);
+  return items.slice(0, count);
 }
 
 document.getElementById('providerSeg').addEventListener('click', e=>{
@@ -960,15 +1069,27 @@ document.getElementById('providerSeg').addEventListener('click', e=>{
 });
 
 async function runGallerySearch(q){
+  const count = getGalleryCount();
   setStatus('Buscando imágenes en línea…');
   try{
-    const items = galleryProvider === 'tumblr' ? await fetchTumblr(q) : await fetchWikimedia(q);
+    const items = galleryProvider === 'tumblr' ? await fetchTumblr(q, count) : await fetchWikimedia(q, count);
     state.refs = items;
     refreshThumbs();
   }catch(err){
     setStatus('No se pudo conectar con esa galería ahora mismo (' + err.message + '). Prueba otra fuente o "Carpeta local".', 'err');
   }
 }
+
+function runCustomSearch(){
+  const input = document.getElementById('customQuery');
+  const q = (input.value || '').trim();
+  if(!q){ input.focus(); return; }
+  runGallerySearch(q);
+}
+document.getElementById('btnCustomSearch').addEventListener('click', runCustomSearch);
+document.getElementById('customQuery').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ e.preventDefault(); runCustomSearch(); }
+});
 
 renderGalleryCats();
 loadTumblrKey();
@@ -1020,6 +1141,7 @@ function startSession(){
   sessionCount = 0;
   drawingStore.clear();
   sessionDrawings = [];
+  refFailed = false;
 
   document.getElementById('setupScreen').classList.add('hidden');
   const session = document.getElementById('sessionScreen');
@@ -1028,6 +1150,7 @@ function startSession(){
   document.getElementById('endOverlay').classList.add('hidden');
 
   initStage();
+  applyRefStyle();
   showReference(0);
   updatePauseIcon();
   updateTimerDisplay();
@@ -1074,6 +1197,7 @@ function endSession(){
 document.getElementById('endRestart').addEventListener('click', ()=>{
   document.getElementById('sessionScreen').classList.add('hidden');
   document.getElementById('setupScreen').classList.remove('hidden');
+  refreshThumbs(); // las URLs pueden haberse renovado durante la sesión
 });
 document.getElementById('endExportAll').addEventListener('click', ()=>{
   if(!sessionDrawings.length){ alert('No hay dibujos guardados en esta sesión.'); return; }
@@ -1086,6 +1210,7 @@ document.getElementById('endExportAll').addEventListener('click', ()=>{
    TEMPORIZADORES
    ========================================================= */
 function tick(){
+  checkRefHealth(); // vigila que la referencia no se haya "roto" (aunque esté en pausa)
   if(state.paused) return;
   state.refRemaining -= 1;
   if(state.sessRemaining !== null) state.sessRemaining -= 1;
@@ -1137,18 +1262,100 @@ function nextReference(){
   updateTimerDisplay();
 }
 
+/* =========================================================
+   CARGA ROBUSTA DE LA REFERENCIA
+   Si la imagen falla (URL temporal invalidada, red, memoria del WebView…) se
+   reintenta sola: primero recreando la URL desde el archivo original (local) o
+   con otra petición (online). Si aun así no carga, se muestra un botón manual.
+   ========================================================= */
+let refLoadToken = 0;
+let refLoading = false;
+let refFailed = false;
+
+function applyRefStyle(){
+  if(!refImg) refImg = document.getElementById('refImg');
+  refImg.style.opacity = state.refOpacity;
+  refImg.style.visibility = state.refVisible ? 'visible' : 'hidden';
+}
+
+function setEmptyState(show, msg, canRetry){
+  const el = document.getElementById('emptyStage');
+  el.classList.toggle('hidden', !show);
+  el.classList.toggle('err', !!canRetry);
+  document.getElementById('emptyMsg').textContent = msg || 'Sin imágenes cargadas';
+  document.getElementById('btnRetryRef').classList.toggle('hidden', !canRetry);
+}
+
+function srcForAttempt(r, attempt){
+  if(r.file){
+    if(attempt >= 1){
+      // el blob anterior pudo quedar inválido: creamos una URL nueva desde el archivo
+      try{ r.url = URL.createObjectURL(r.file); }catch(e){}
+    }
+    return r.url;
+  }
+  if(attempt >= 2){
+    return r.url + (r.url.includes('?') ? '&' : '?') + '_r=' + Date.now() + attempt;
+  }
+  return r.url;
+}
+
+function loadRefImage(r, token, attempt, done, preserve){
+  refLoading = true;
+  if(attempt === 0) refImg.setAttribute('crossorigin','anonymous');
+  else refImg.removeAttribute('crossorigin'); // solo para mostrar (si falla CORS)
+  refImg.onload = ()=>{
+    if(token !== refLoadToken) return;
+    refLoading = false; refFailed = false;
+    setEmptyState(false);
+    applyRefStyle();
+    fitStageForImage(refImg.naturalWidth || 1200, refImg.naturalHeight || 900, !!preserve);
+    if(done) done(true);
+  };
+  refImg.onerror = ()=>{
+    if(token !== refLoadToken) return;
+    if(attempt < 3){
+      setTimeout(()=>{
+        if(token !== refLoadToken) return;
+        loadRefImage(r, token, attempt+1, done, preserve);
+      }, 300*(attempt+1));
+    } else {
+      refLoading = false; refFailed = true;
+      setEmptyState(true, 'No se pudo cargar esta referencia.', true);
+      if(done) done(false);
+    }
+  };
+  refImg.src = srcForAttempt(r, attempt);
+}
+
 function showReference(i, onReady){
   const r = state.refs[i];
-  if(!r) return;
+  if(!r){ setEmptyState(true, 'Sin imágenes cargadas', false); return; }
   document.getElementById('refCounter').textContent = (i+1) + ' / ' + state.refs.length;
-  document.getElementById('emptyStage').classList.toggle('hidden', !!r);
-  refImg.onload = ()=>{
-    fitStageForImage(refImg.naturalWidth || 1200, refImg.naturalHeight || 900, false);
-    if(onReady) onReady();
-  };
-  refImg.onerror = ()=>{ if(onReady) onReady(); };
-  refImg.src = r.url;
+  setEmptyState(false);
+  refFailed = false;
+  const token = ++refLoadToken;
+  loadRefImage(r, token, 0, onReady, false);
 }
+
+function reloadCurrentRef(){
+  const r = state.refs[state.refIndex];
+  if(!r) return;
+  refFailed = false;
+  setEmptyState(false);
+  const token = ++refLoadToken;
+  loadRefImage(r, token, 1, null, true); // preserve=true: no borrar lo dibujado
+}
+
+function checkRefHealth(){
+  if(!refImg || refLoading || refFailed) return;
+  if(!refImg.getAttribute('src')) return;
+  if(refImg.complete && refImg.naturalWidth === 0) reloadCurrentRef();
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden) setTimeout(checkRefHealth, 300);
+});
+document.getElementById('btnRetryRef').addEventListener('click', reloadCurrentRef);
 
 /* =========================================================
    PERSISTENCIA POR REFERENCIA — cada imagen conserva su propio dibujo
@@ -1312,6 +1519,7 @@ document.getElementById('tbExit').addEventListener('click', ()=>{
     document.getElementById('sessionScreen').classList.add('hidden');
     document.getElementById('setupScreen').classList.remove('hidden');
     closeAllPopovers();
+    refreshThumbs();
   }
 });
 
@@ -1529,6 +1737,26 @@ function renderLayerList(){
     });
     list.appendChild(row);
   });
+
+  // la referencia va al fondo de la pila, como una capa más (no se puede borrar ni pintar)
+  const refRow = document.createElement('div');
+  refRow.className = 'layer-row ref-row';
+  refRow.innerHTML = `
+    <span class="lr-eye"><i class="fa-solid ${state.refVisible?'fa-eye':'fa-eye-slash'}"></i></span>
+    <span class="lr-name"><i class="fa-solid fa-image" style="color:var(--accent);margin-right:6px;"></i>Referencia</span>
+    <input type="range" class="lr-op" min="0" max="100" value="${Math.round(state.refOpacity*100)}">
+    <span class="lr-lock" title="La referencia no se puede eliminar"><i class="fa-solid fa-lock"></i></span>
+  `;
+  refRow.querySelector('.lr-eye').addEventListener('click', ()=>{
+    state.refVisible = !state.refVisible;
+    applyRefStyle();
+    renderLayerList();
+  });
+  refRow.querySelector('.lr-op').addEventListener('input', e=>{
+    state.refOpacity = Number(e.target.value)/100;
+    applyRefStyle();
+  });
+  list.appendChild(refRow);
 }
 
 /* ---------- pinceles: UI ---------- */
@@ -2110,7 +2338,7 @@ function setupPointerHandling(){
         clearTimeout(pending.timer);
         pending.started = true;
         currentStroke = startStroke(pending.canvasPos.x, pending.canvasPos.y, pending.pressure);
-        currentStroke.stab = {x: pending.canvasPos.x, y: pending.canvasPos.y};
+        if(currentStroke) currentStroke.stab = {x: pending.canvasPos.x, y: pending.canvasPos.y};
       }
       if(pending.started && currentStroke){
         const pos = getCanvasPos(e);
@@ -2215,7 +2443,10 @@ function pickColorAt(pos){
   tctx.fillStyle = '#ffffff';
   tctx.fillRect(0,0,tmp.width,tmp.height);
   try{
-    if(refImg && refImg.complete && refImg.naturalWidth) tctx.drawImage(refImg,0,0,tmp.width,tmp.height);
+    if(state.refVisible && refImg && refImg.complete && refImg.naturalWidth){
+      tctx.globalAlpha = state.refOpacity;
+      tctx.drawImage(refImg,0,0,tmp.width,tmp.height);
+    }
   }catch(e){ /* imagen no disponible aún, seguimos solo con las capas */ }
   layers.forEach(l=>{
     if(!l.visible) return;
@@ -2281,6 +2512,7 @@ function exportDrawing(){
 /* atajos de teclado (escritorio) */
 window.addEventListener('keydown', e=>{
   if(document.getElementById('sessionScreen').classList.contains('hidden')) return;
+  if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if(e.code === 'Space'){ e.preventDefault(); state.paused = !state.paused; updatePauseIcon(); }
   if(e.key === 'ArrowRight') document.getElementById('fabNext').click();
   if(e.key === 'ArrowLeft') document.getElementById('fabPrev').click();
